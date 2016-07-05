@@ -4,8 +4,8 @@ import requests
 import socket
 import time
 
-#ser = serial.Serial('/dev/cu.usbmodem621',9600)
-ser = serial.Serial('/dev/cu.usbmodem411',9600)
+ser = serial.Serial('/dev/cu.usbmodem621',9600)
+#ser = serial.Serial('/dev/cu.usbmodem411',9600)
 url = 'https://hooks.slack.com/services/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'
 
 graphiteURL="95.213.252.56"

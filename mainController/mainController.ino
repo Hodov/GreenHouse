@@ -70,13 +70,15 @@ boolean needToSwitch(int futureSwitchPosition, int currentPos) {
 #define timePeriod 300000
 #define kSoil 3
 #define nSoil "soil"
+#define kLight 4
+#define nLight "light"
 
-//адреса модемов (пока модем получатель везде одинаковый)
+//адреса модемов
 const byte mainControllerAddr[6] = "00001";
 const byte tempretureSwitcherAddr[6] = "00002";
 
 //массив, где хранятся значения с датчиков, напр. values[kTemperature] это values[1], там храним температуру
-int values[3] = {0,0,0};
+int values[5] = {0,0,0,0,0};
 
 //константы для дневной и ночной температуры
 #define dayTemperature 22
@@ -182,6 +184,8 @@ void parseData(char input[]) {
         values[kTempSwitchPos] = value;
       } else if (key == nSoil) {
         values[kSoil] = value;
+      } else if (key == nLight) {
+        values[kLight] = value;
       } else {        
       }
     }     

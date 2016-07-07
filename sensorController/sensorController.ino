@@ -91,6 +91,9 @@ void setup()
   delay(300);
   Serial.begin(9600); 
   
+  // инициализация датчика света
+  lightMeter.begin();
+  
   // модем работает на отправку
   radio.begin();
   radio.setRetries(15, 15);

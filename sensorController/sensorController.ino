@@ -132,7 +132,6 @@ void loop()
     }
   }
 
-
   if (soilIsActive) {
     //если прошло достаточно времени, считываем данные с датчика температуры
     if (cSoil.needToCheck(soilDelay)){
@@ -186,5 +185,6 @@ int getSoil() {
 
 int getLight() {
   uint16_t lux = lightMeter.readLightLevel();
-  return int(lux);
+  String s = String(lux);
+  return s.toInt();
 }

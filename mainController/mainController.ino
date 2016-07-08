@@ -1,3 +1,6 @@
+#define rtc_old false
+#define rtc_new true
+
 class Checker
 {
   //сколько раз проверять, что данные действительно перешли пороговый уровень
@@ -109,9 +112,17 @@ void setup()
   delay(300);
   Serial.begin(9600); 
   //time модуль
-  time.begin(RTC_DS1302,5,3,4);
+  if (rtc_old) {
+    time.begin(RTC_DS1302,5,3,4);  
+  } else if (rtc_old) {
+    time.begin(RTC_DS3231);
+  } else {
+    
+  }
   //можно установить время ()
-  //time.settime(0,18,10,26,05,16,4);  
+  //0 сек, 18 мин, 10 часов, 26 мая 16 года, 4 день недели
+  //time.settime(0,18,10,26,05,16,4);
+    
   
   // первый модем работает на отправку
   radioTransmitter.begin();
@@ -173,6 +184,7 @@ void parseData(char input[]) {
       a=i+1;
       
       //отправляем данные в порт
+      Serial.println(getTime());
       sendToPortInt(key, value);
       
       //сохраняем в массив в зависимости от типа ключа

@@ -114,7 +114,8 @@ void setup()
   //time модуль
   if (rtc_old) {
     time.begin(RTC_DS1302,5,3,4);  
-  } else if (rtc_old) {
+  } else if (rtc_new) {
+    Serial.println("New RTC connect");
     time.begin(RTC_DS3231);
   } else {
     

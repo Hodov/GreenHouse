@@ -1,21 +1,24 @@
-//номер сенсонр контроллера, которое будет добавляться в отправляемые данные
-int controllerNumber = 1;
+int controllerNumber = 1;                    //номер сенсонр контроллера, которое будет добавляться в отправляемые данные
 
 //первый адрес свой, нужен уникальный для каждого сенсор контроллера, второй адрес главного контроллера
 byte addresses[][6] = {"1sens","mainC"};
 
-//разные датчики температуры и влажности не стоит использовать оба одновременно
-//какие датчики подключены
-#define temperatureIsActive_DHT11 true // true - если подключен,  false - если выключен
-#define humidityIsActive_DHT11 true // true - если подключен,  false - если выключен
-#define temperatureIsActive_DHT22 false // true - если подключен,  false - если выключен
-#define humidityIsActive_DHT22 false // true - если подключен,  false - если выключен
-#define soilIsActive true // true - если подключен,  false - если выключен
-#define lightIsActive true // true - если подключен,  false - если выключен
-#define temperatureDelay 10000 //время опроса датчика температуры в мс
-#define humidityDelay 10000 //время опроса датчика влажности в мс
-#define soilDelay 10000 //время опроса датчика влажности в мс
-#define lightDelay 10000 //время опроса датчика освещенности в мс
+                                            //разные датчики температуры и влажности не стоит использовать одновременно
+                                            //какие датчики подключены
+                                            // true - если подключен,  false - если выключен
+#define temperatureIsActive_DHT11 true 
+#define humidityIsActive_DHT11 true         // температура в составе датчик DHT11
+#define temperatureIsActive_DHT22 false     // температура в составе датчик DHT22
+#define humidityIsActive_DHT22 false        // влажность в составе датчик DHT22
+#define soilIsActive true                   // датчик влажности почвы
+#define lightIsActive false                 // датчик света
+#define photoIsActive true                  // фоторезистор
+#define temperatureDelay 10000              //время опроса датчика температуры в мс
+#define humidityDelay 10000                 //время опроса датчика влажности в мс
+#define soilDelay 10000                     //время опроса датчика влажности в мс
+#define lightDelay 10000                    //время опроса датчика освещенности в мс
+#define photoDelay 10000                    //время опроса датчика освещенности в мс
+
 
 class Checker
 {
@@ -57,10 +60,12 @@ class Checker
 #define keyHumidity "humidity"
 #define keySoil "soil"
 #define keyLight "light"
+#define keyPhoto "photo"
 #define nTemperature 1
 #define nHumidity 2
 #define nSoil 3
 #define nLight 4
+#define nPhoto 5
 
 struct Sensor {
   int controllerNumber;
@@ -95,11 +100,15 @@ int soilPin = A1;
 //датчик освещенности
 BH1750 lightMeter;
 
+//фоторезистор
+const int pinPhoto = A0;
+
 //создаем экземпляры класса для проверка температуры и модема
 Checker cTemp;
 Checker cHum;
 Checker cSoil;
 Checker cLight;
+Checker cPhoto;
 
 //=========================SETUP============================
 void setup()
@@ -117,6 +126,9 @@ void setup()
   radio.openWritingPipe(addresses[1]);
   radio.startListening();
 
+  //инициализация фоторезистора
+  pinMode(pinPhoto, INPUT);
+
 }
 //==========================================================
 //=========================LOOP=============================
@@ -126,7 +138,7 @@ void loop()
   if (temperatureIsActive_DHT11) {
     //если прошло достаточно времени, считываем данные с датчика температуры
     if (cTemp.needToCheck(temperatureDelay)) {
-      //sendData(keyTemperature, getTemperatureDHT11());
+      
       sendSensor(makeSensor(controllerNumber, nTemperature, getTemperatureDHT11()));
       delay(500);
     }
@@ -145,7 +157,7 @@ void loop()
   if (temperatureIsActive_DHT22) {
     //если прошло достаточно времени, считываем данные с датчика температуры
     if (cTemp.needToCheck(temperatureDelay)) {
-      //sendData(keyTemperature, getTemperatureDHT22());
+      
       sendSensor(makeSensor(controllerNumber, nTemperature, getTemperatureDHT22()));
       delay(500);
     }
@@ -154,7 +166,7 @@ void loop()
   if (humidityIsActive_DHT22) {
     //если прошло достаточно времени, считываем данные с датчика температуры
     if (cHum.needToCheck(humidityDelay)) {
-      //sendData(keyHumidity, getHumidityDHT22());
+      
       sendSensor(makeSensor(controllerNumber, nHumidity, getHumidityDHT22()));
       delay(500);
     }
@@ -163,7 +175,7 @@ void loop()
   if (soilIsActive) {
     //если прошло достаточно времени, считываем данные с датчика температуры
     if (cSoil.needToCheck(soilDelay)) {
-      //sendData(keySoil, getSoil());
+      
       sendSensor(makeSensor(controllerNumber, nSoil, getSoil()));
       delay(500);
     }
@@ -172,8 +184,16 @@ void loop()
   if (lightIsActive) {
     //если прошло достаточно времени, считываем данные с датчика температуры
     if (cLight.needToCheck(lightDelay)) {
-      //sendData(keyLight, getLight());
+      
       sendSensor(makeSensor(controllerNumber, nLight, getLight()));
+      delay(500);
+    }
+  }
+
+  if (photoIsActive) {
+    //если прошло достаточно времени, считываем данные с датчика температуры
+    if (cPhoto.needToCheck(photoDelay)) {
+      sendSensor(makeSensor(controllerNumber, nPhoto, getPhoto()));
       delay(500);
     }
   }
@@ -220,14 +240,11 @@ int getLight() {
   return s.toInt();
 }
 
+int getPhoto() {
+  return analogRead(pinPhoto);
+}
+
 void sendSensor(Sensor outputSensor) {
-  //sendSensorToPort(outputSensor);
-  //char buffer[32] = {0};
-  //String outputToModem = outputSensor.controllerName + ";" + outputSensor.key + ";" + String(outputSensor.value) + ";";
-  //Sensor sensorToModem = outputSensor;
-  //outputToModem.toCharArray(buffer, 50);
-  //Serial.println(outputToModem);
-  //if (!radio.write(&buffer, sizeof(buffer))) {
   radio.stopListening();
   if (!radio.write(&outputSensor, sizeof(outputSensor))) {
     Serial.println(F("failed"));

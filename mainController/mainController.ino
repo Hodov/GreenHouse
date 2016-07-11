@@ -77,11 +77,13 @@ boolean needToSwitch(int futureSwitchPosition, int currentPos) {
 #define kHumidity 2
 #define kSoil 3
 #define kLight 4
+#define kLight 5
 
 #define nTemperature "temperature"
 #define nHumidity "humidity"
 #define nSoil "soil"
 #define nLight "light"
+#define nLight "photo"
 
 #define kTempSwitchPos 5
 #define nTempSwitchPos "TempSwitchPos"
@@ -169,6 +171,13 @@ void loop()
      //внутри этой функции надо включить или выключить обогреватель, проверки уже есть
      //checkTemperature(values[kTemperature], setTemperature(), radioTransmitter);
   }
+  Serial.println("Begin");
+  for (int i=0; i<maxSensors; i++) {
+    
+    Serial.println(sensorsValues[i].key);
+    Serial.println(sensorsValues[i].value);
+    
+  }
 
   delay(1000);
   
@@ -183,9 +192,9 @@ void saveDataFromSensor(Sensor data) {
   int i = 0;
   while (sensorsValues[i].controllerNumber != 0) {
 
-    if (sensorsValues[i].controllerNumber == data.controllerNumber and sensorsValues[i].value == data.value) {
+    if (sensorsValues[i].controllerNumber == data.controllerNumber and sensorsValues[i].key == data.key) {
       matchSensor = true;
-      sensorsValues[i].key = data.key;
+      sensorsValues[i].value = data.value;
     }
 
     if (sensorsValues[i].controllerNumber != 0) {

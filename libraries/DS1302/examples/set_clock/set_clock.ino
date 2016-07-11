@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 // Example sketch for interfacing with the DS1302 timekeeping chip.
 //
 // Copyright (c) 2009, Matt Sparks

@@ -1,5 +1,15 @@
-#define rtc_old false
-#define rtc_new true
+//адрес мейн контроллера
+byte addresses[][6] = {"mainC"};
+
+#define rtc_old true
+#define rtc_new false
+#define maxSensors 15
+
+struct Sensor {
+  int controllerNumber = 0;
+  int key;
+  int value; 
+};
 
 class Checker
 {
@@ -48,7 +58,6 @@ boolean needToSwitch(int futureSwitchPosition, int currentPos) {
       return false;
   }  
 }
-  
 };
 
 #include <SPI.h>
@@ -64,24 +73,27 @@ boolean needToSwitch(int futureSwitchPosition, int currentPos) {
 //описание названия и расположения в массиве для хранения данных с датчиков
 #define turnOn 1
 #define turnOff 0
-#define kTemperature 0
-#define nTemperature "temperature"
-#define kHumidity 1
-#define nHumidity "humidity"
-#define kTempSwitchPos 2
-#define nTempSwitchPos "TempSwitchPos"
-#define timePeriod 300000
+#define kTemperature 1
+#define kHumidity 2
 #define kSoil 3
-#define nSoil "soil"
 #define kLight 4
+
+#define nTemperature "temperature"
+#define nHumidity "humidity"
+#define nSoil "soil"
 #define nLight "light"
 
-//адреса модемов
-const byte mainControllerAddr[6] = "00001";
+#define kTempSwitchPos 5
+#define nTempSwitchPos "TempSwitchPos"
+#define timePeriod 300000
+
+//адрес модема получателя будет совпадать с названием сенсора отправителя
 const byte tempretureSwitcherAddr[6] = "00002";
 
-//массив, где хранятся значения с датчиков, напр. values[kTemperature] это values[1], там храним температуру
-int values[5] = {0,0,0,0,0};
+//удалить после исправления функции
+int values[]={0};
+//массив класса сенсоров, где будем хранить полученные значения
+Sensor sensorsValues[maxSensors];
 
 //константы для дневной и ночной температуры
 #define dayTemperature 22
@@ -92,8 +104,8 @@ int values[5] = {0,0,0,0,0};
 #define endDay 22
 
 //первый модем
-RF24 radioReceiver(7, 8);
 //второй модем
+RF24 radioReceiver(7, 8);
 RF24 radioTransmitter(9, 10);
 
 //инициализируем датчик времени
@@ -110,16 +122,16 @@ int rele = 12;
 void setup()
 {
   delay(300);
-  Serial.begin(9600); 
+  Serial.begin(9600);
+  
   //time модуль
   if (rtc_old) {
     time.begin(RTC_DS1302,5,3,4);  
   } else if (rtc_new) {
-    Serial.println("New RTC connect");
     time.begin(RTC_DS3231);
   } else {
-    
   }
+  
   //можно установить время ()
   //0 сек, 18 мин, 10 часов, 26 мая 16 года, 4 день недели
   //time.settime(0,18,10,26,05,16,4);
@@ -133,7 +145,7 @@ void setup()
 
   // первый модем работает на прием
   radioReceiver.begin();
-  radioReceiver.openReadingPipe(0, mainControllerAddr);
+  radioReceiver.openReadingPipe(1, addresses[0]);
   radioReceiver.startListening();
 
   //отправляем в мониторинг значения по умолчанию для реле
@@ -144,18 +156,18 @@ void setup()
 //=========================LOOP=============================
 void loop()
 {
-  
+  Sensor inputSensor;
   if (radioReceiver.available())
   {
-    char msgReceive[32] = {0};
-    radioReceiver.read(&msgReceive, sizeof(msgReceive));  
-    parseData(msgReceive);
+    radioReceiver.read(&inputSensor, sizeof(inputSensor));
+    sendSensorToPort(inputSensor);
+    saveDataFromSensor(inputSensor);
   }
   
   //  проверяем значение температуры из массива на пригодность каждые 1 мин
   if (cTemp.needToCheck(timePeriod)) {
      //внутри этой функции надо включить или выключить обогреватель, проверки уже есть
-     checkTemperature(values[kTemperature], setTemperature(), radioTransmitter);
+     //checkTemperature(values[kTemperature], setTemperature(), radioTransmitter);
   }
 
   delay(1000);
@@ -163,45 +175,27 @@ void loop()
 }
 //==========================================================
 
-void parseData(char input[]) {
-  String str; 
-  str = input; //запишем, что пришло с модема
-  int a = 0;  //положение последней ;
-  String key; //название ключа
-  int value;  //значение ключа
+void saveDataFromSensor(Sensor data) {
+  
+  boolean matchSensor = false;
 
-  //пробегаем всю строку
-  for(int i = 0; i < str.length(); i++) { 
-    //если нашли точку с запятой, записываем ключ
-    if (str[i] == ';') {      
-        key = str.substring(a,i);     
-      a=i+1;
-        i++;
-      //ищем следующую точку с запятой и записываем значение
-      while (str[i] != ';') {
-        i++;
-      }
-      value = str.substring(a,i).toInt();     
-      a=i+1;
-      
-      //отправляем данные в порт
-      Serial.println(getTime());
-      sendToPortInt(key, value);
-      
-      //сохраняем в массив в зависимости от типа ключа
-      if  (key == nTemperature) {
-        values[kTemperature] = value;
-      } else if (key == nHumidity) {
-        values[kHumidity] = value;        
-      } else if (key == nTempSwitchPos) {
-        values[kTempSwitchPos] = value;
-      } else if (key == nSoil) {
-        values[kSoil] = value;
-      } else if (key == nLight) {
-        values[kLight] = value;
-      } else {        
-      }
-    }     
+  int num = 0;
+  int i = 0;
+  while (sensorsValues[i].controllerNumber != 0) {
+
+    if (sensorsValues[i].controllerNumber == data.controllerNumber and sensorsValues[i].value == data.value) {
+      matchSensor = true;
+      sensorsValues[i].key = data.key;
+    }
+
+    if (sensorsValues[i].controllerNumber != 0) {
+      num++;
+    }
+    i++;
+  }
+  
+  if (not matchSensor) {
+    sensorsValues[num] = data;
   }
 }
 
@@ -253,5 +247,22 @@ void sendToPortStr(String key, String value) {
 String getTime() {
   String s = String(time.gettime("H")) + ':' + String(time.gettime("i")) + ':' + String(time.gettime("s"));
   return s;
+}
+
+void sendSensorToPort(Sensor data) {
+  String keyStr;
+  if (data.key == kTemperature) {
+    keyStr = nTemperature;
+  } else if (data.key == kHumidity) {
+    keyStr = nHumidity;
+  } else if (data.key == kSoil) {
+    keyStr = nSoil;
+  } else if (data.key == kLight) {
+    keyStr = nLight;
+  } else {
+    
+  }
+  String output = String(data.controllerNumber)+";"+keyStr+";"+String(data.value)+";";
+  Serial.println(output);
 }
 

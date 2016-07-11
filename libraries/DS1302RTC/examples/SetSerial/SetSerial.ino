@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 /*----------------------------------------------------------------------*
  * Display the date and time from a DS1302 RTC every second.            *
  *                                                                      *

@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 /*
  * TimeRTCLogger.pde
  * example code illustrating adding and subtracting Time.

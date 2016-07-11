@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 #include <stdio.h>
 #include <DS1302.h>
 

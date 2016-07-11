@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 /*
    Dec 2014 - TMRh20 - Updated
    Derived from examples by J. Coliz <maniacbug@ymail.com>

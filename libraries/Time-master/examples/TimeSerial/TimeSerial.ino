@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 /* 
  * TimeSerial.pde
  * example code illustrating Time library set through serial port messages.

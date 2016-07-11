@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 /*
   // March 2014 - TMRh20 - Updated along with High Speed RF24 Library fork
   // Parts derived from examples by J. Coliz <maniacbug@ymail.com>

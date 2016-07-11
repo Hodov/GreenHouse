@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 /*
  * TimeRTCSet.pde
  * example code illustrating Time library with Real Time Clock.

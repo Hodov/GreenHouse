@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 /* 
  * TimeSerialDateStrings.pde
  * example code illustrating Time library date strings

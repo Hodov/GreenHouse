@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 // DS1302_LCD (C)2010 Henning Karlsen
 // web: http://www.henningkarlsen.com/electronics
 //

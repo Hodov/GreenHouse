@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 /*
 TMRh20 2014
 

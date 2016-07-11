@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 class Checker
 {
   // время предыдущей проверки

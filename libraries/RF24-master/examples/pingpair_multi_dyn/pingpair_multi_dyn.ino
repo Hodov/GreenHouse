@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 /*
  Copyright (C) 2011 James Coliz, Jr. <maniacbug@ymail.com>
 

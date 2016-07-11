@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 /*
  * TimeGPS.pde
  * example code illustrating time synced from a GPS

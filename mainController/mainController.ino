@@ -24,6 +24,7 @@ struct indicators {
   int delta = 0;
   int lowValueCounter = 0;
   int highValueCounter = 0;
+  int releValue = 0;
 };
 
 class Checker
@@ -100,8 +101,8 @@ class Checker
 #define nLight "light"
 #define nPhoto "photo"
 
-#define kTempSwitchPos 5
-#define nTempSwitchPos "TempSwitchPos"
+#define kTempSwitchPos 6
+#define nHeaterRelePosition "HeaterRelePosition"
 #define timePeriod 300000
 
 //адрес модема получателя будет совпадать с названием сенсора отправителя
@@ -166,7 +167,7 @@ void setup()
   radioReceiver.startListening();
 
   //отправляем в мониторинг значения по умолчанию для реле
-  sendToPortInt(nTempSwitchPos, 0);
+  //sendToPortInt(nTempSwitchPos, 0);
 
 }
 //==========================================================
@@ -256,9 +257,9 @@ void checkTemperature(int value, int treshold, RF24 radio) {
       }
       
       if (sensorValues[i].highValueCounter > maxCounterForSwitch) {
-        sendSwitchPos(nTempSwitchPos, radioReceiver, sensorValues[i].controllerNumber, turnOff);
+        sendRelePosition(nHeaterRelePosition, radioReceiver, sensorValues[i].controllerNumber, turnOff);
       } else if (sensorValues[i].lowValueCounter > maxCounterForSwitch) {
-        sendSwitchPos(nTempSwitchPos, radioReceiver, sensorValues[i].controllerNumber, turnOn);
+        sendRelePosition(nHeaterRelePosition, radioReceiver, sensorValues[i].controllerNumber, turnOn);
       } else {
 
       }
@@ -278,20 +279,20 @@ int setTemperature() {
   }
 }
 
-void sendSwitchPos(String key, RF24 radio, int addr, int pos) {
-  //здесь нужно перевести инт в байты, чтобы передать адрес отправления !!!!!!!!!!!!!!!!!!!!!!!!
-  radio.openWritingPipe(addr);
-  radio.stopListening();
+void sendRelePosition(String key, RF24 radio, int addr, int pos) {
+  //здесь нужно перевести инт в байты, чтобы передать адрес отправления !!!!!!!!!!!!!!!!!!!!!!!!  
   char buffer[32] = {0};
   String s = key + ";" + String(pos) + ";";
-  //sendToPortInt(key, pos);
   s.toCharArray(buffer, 50);
+  radio.openWritingPipe(addr);
+  radio.stopListening();
   radio.write(&buffer, sizeof(buffer));
   radio.startListening();
+  sendToPortInt(addr, key, pos);
 }
 
-void sendToPortInt(String key, int value) {
-  String s = key + ";" + String(value) + ";";
+void sendToPortInt(int addr, String key, int value) {
+  String s = String(addr) + ";" +key + ";" + String(value) + ";";
   Serial.println(s);
 }
 

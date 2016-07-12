@@ -18,10 +18,19 @@ byte addresses[][6] = {"mainC"};
 //как часто проверяем значения
 #define temperatureCheckPeriod 60000
 #define humidityCheckPeriod 60000
+#define wateringCheckPeriod 60000
 
-//константы для дневной и ночной температуры
+//константы для дневной и ночной температуры для нагрева
 #define dayTemperature 22
 #define nightTemperature 18
+
+//константы для дневной и ночной температуры для охлаждения
+#define dayTemperatureCooling 24
+#define nightTemperatureCooling 20
+
+//константы, во сколько начинается и заканчивается день для смены температуры
+#define startDay 8
+#define endDay 22
 
 //константа для влажности
 #define constHumidity 75
@@ -38,9 +47,6 @@ struct indicators {
   int key;
   int value;
   int oldValue;
-  int thresholdLow = 0;
-  int thresholdHigh = 0;
-  int delta = 0;
   int lowValueCounter = 0;
   int highValueCounter = 0;
   int releValue = 0;
@@ -48,16 +54,8 @@ struct indicators {
 
 class Checker
 {
-    //сколько раз проверять, что данные действительно перешли пороговый уровень
-#define maxCounterForSwitch 5
-
-    int currentState = 0;
-
     // время предыдущей проверки
     unsigned long prevMillis = 0;
-
-    int currentCounter = 0;
-    int switchPosition = 0;
 
   public:
     Checker()
@@ -71,23 +69,6 @@ class Checker
       unsigned long currentMillis = millis();
       if ((currentMillis - prevMillis >= period)  || (currentMillis < prevMillis)) {
         prevMillis = currentMillis;
-        return true;
-      } else {
-        return false;
-      }
-    }
-
-    //проверяем несколько раз показатели, чтобы убедиться, что пороговое значение перешли
-    boolean needToSwitch(int futureSwitchPosition, int currentPos) {
-      //switchPosition = currentPos;
-      if (switchPosition != futureSwitchPosition) {
-        currentCounter++;
-      } else {
-        currentCounter = 0;
-      }
-      if ((currentCounter >= maxCounterForSwitch) || (switchPosition != currentPos)) {
-        currentCounter = 0;
-        switchPosition = futureSwitchPosition;
         return true;
       } else {
         return false;
@@ -124,19 +105,15 @@ class Checker
 #define nHeaterRelePosition "HeaterRelePosition"
 #define kTempSwitchPos 7
 #define nHumidifierRelePosition "HumidifierRelePosition"
+#define kWateringSwitchPos 8
+#define nWaterinRelePosition "WateringRelePosition"
+#define kWateringSwitchPos 9
+#define nCoolingRelePosition "CoolingRelePosition"
 
-
-//адрес модема получателя будет совпадать с названием сенсора отправителя
-const byte tempretureSwitcherAddr[6] = "10000";
-
-//удалить после исправления функции
-int values[] = {0};
 //массив класса сенсоров, где будем хранить полученные значения
 indicators sensorValues[maxSensors];
 
-//константы, во сколько начинается и заканчивается день
-#define startDay 8
-#define endDay 22
+
 
 //первый модем
 //второй модем
@@ -149,6 +126,7 @@ RTC time;
 //создаем экземпляры класса для проверка температуры и модема
 Checker cTemp;
 Checker cHumi;
+Checker cWatering;
 
 //реле
 int rele = 12;
@@ -172,10 +150,10 @@ void setup()
   //time.settime(0,18,10,26,05,16,4);
 
 
-  // первый модем работает на отправку
+  // первый модем работает на отправку (этого модема не будет !!!!!!!!!!)
   radioTransmitter.begin();
   radioTransmitter.setRetries(15, 15);
-  radioTransmitter.openWritingPipe(tempretureSwitcherAddr);
+  radioTransmitter.openWritingPipe(addresses[0]);
   radioTransmitter.stopListening();
 
   // первый модем работает на прием
@@ -202,14 +180,18 @@ void loop()
   //  проверяем значение температуры из массива на пригодность каждые 1 мин
   if (cTemp.needToCheck(temperatureCheckPeriod)) {
     //внутри этой функции надо включить или выключить обогреватель, проверки уже есть
-    checkSensor(kTemperature, nHeaterRelePosition, radioReceiver);
+    checkSensor(kTemperature, nHeaterRelePosition, radioReceiver, getTreshold(kTemperature, "heater") - getDelta(kTemperature), getTreshold(kTemperature, "heater") + getDelta(kTemperature), turnOn, turnOff);
+    checkSensor(kTemperature, nCoolingRelePosition, radioReceiver, getTreshold(kTemperature, "cooler") - getDelta(kTemperature), getTreshold(kTemperature, "cooler") + getDelta(kTemperature), turnOff, turnOn);
   }
 
   if (cHumi.needToCheck(humidityCheckPeriod)) {
     //внутри этой функции надо включить или выключить обогреватель, проверки уже есть
-    checkSensor(kHumidity, nHumidifierRelePosition, radioReceiver);
+    checkSensor(kHumidity, nHumidifierRelePosition, radioReceiver, getTreshold(kHumidity, "main") - getDelta(kHumidity), getTreshold(kHumidity, "main") + getDelta(kHumidity), turnOn, turnOff);
   }
 
+  if (cWatering.needToCheck(wateringCheckPeriod)) {
+
+  }
   delay(1000);
 
 }
@@ -228,28 +210,28 @@ void saveDataFromSensor(Sensor data) {
   sensorValues[i].oldValue = sensorValues[i].value;
   sensorValues[i].value = data.value;
 
-  sensorValues[i].delta = getDelta(data.key);
-  sensorValues[i].thresholdLow = getTreshold(data.key) - sensorValues[i].delta;
-  sensorValues[i].thresholdHigh = getTreshold(data.key) + sensorValues[i].delta;
+  //sensorValues[i].delta = getDelta(data.key);
+  //sensorValues[i].thresholdLow = getTreshold(data.key) - sensorValues[i].delta;
+  //sensorValues[i].thresholdHigh = getTreshold(data.key) + sensorValues[i].delta;
 
 }
 
 //проверка температурных значений для включения обогревателя
-void checkSensor(int sensorType, String releName, RF24 radio) {
+void checkSensor(int sensorType, String releName, RF24 radio, int minValue, int maxValue, int minValueAction, int maxValueAction) {
   int i = 0;
   while (sensorValues[i].controllerNumber != 0) {
     if (sensorValues[i].key == sensorType) {
 
-      if (sensorValues[i].value > sensorValues[i].thresholdHigh ) {
-        if (sensorValues[i].oldValue > sensorValues[i].thresholdHigh ) {
+      if (sensorValues[i].value > maxValue ) {
+        if (sensorValues[i].oldValue > maxValue ) {
           sensorValues[i].highValueCounter++;
           sensorValues[i].lowValueCounter = 0;
         } else {
           sensorValues[i].highValueCounter = 1;
           sensorValues[i].lowValueCounter = 0;
         }
-      } else if (sensorValues[i].value < sensorValues[i].thresholdLow ) {
-        if (sensorValues[i].oldValue < sensorValues[i].thresholdLow ) {
+      } else if (sensorValues[i].value < minValue ) {
+        if (sensorValues[i].oldValue < minValue ) {
           sensorValues[i].highValueCounter = 0;
           sensorValues[i].lowValueCounter++;
         } else {
@@ -262,9 +244,9 @@ void checkSensor(int sensorType, String releName, RF24 radio) {
       }
 
       if (sensorValues[i].highValueCounter > maxCounterForSwitch) {
-        sendRelePosition(releName, radio, sensorValues[i].controllerNumber, turnOff);
+        sendRelePosition(releName, radio, sensorValues[i].controllerNumber, maxValueAction);
       } else if (sensorValues[i].lowValueCounter > maxCounterForSwitch) {
-        sendRelePosition(releName, radio, sensorValues[i].controllerNumber, turnOn);
+        sendRelePosition(releName, radio, sensorValues[i].controllerNumber, minValueAction);
       } else {
 
       }
@@ -275,12 +257,20 @@ void checkSensor(int sensorType, String releName, RF24 radio) {
 
 }
 
-int setTemperature() {
+int setTemperature(String purpose) {
   int hour = atoi(time.gettime("H"));
   if (hour > startDay and hour < endDay) {
-    return dayTemperature;
+    if (purpose == "heater") {
+      return dayTemperature;
+    } else if (purpose == "cooler") {
+      return dayTemperatureCooling;
+    }
   } else {
-    return nightTemperature;
+    if (purpose == "heater") {
+      return nightTemperature;
+    } else if (purpose == "cooler") {
+      return nightTemperatureCooling;
+    }
   }
 }
 
@@ -342,11 +332,11 @@ int getDelta(int sensorKey) {
   }
 }
 
-int getTreshold(int sensorKey) {
+int getTreshold(int sensorKey, String purpose) {
   if (sensorKey == kTemperature) {
-    return setTemperature();
+    return setTemperature(purpose);
   } else if (sensorKey == kHumidity) {
-    return humidityDelta;
+    return setHumidity();
   }
 }
 

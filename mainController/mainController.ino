@@ -1,11 +1,30 @@
 //адрес мейн контроллера
 byte addresses[][6] = {"mainC"};
 
+//какой модуль часов использовать
 #define rtc_old true
 #define rtc_new false
+
+//место для сенсоров в памяти
 #define maxSensors 15
+
+//сколько раз считаем повторения значения
 #define maxCounterForSwitch 5
+
+//допустимый диапазон нормального значения для сенсора
 #define temperatureDelta 2
+#define humidityDelta 5
+
+//как часто проверяем значения
+#define temperatureCheckPeriod 60000
+#define humidityCheckPeriod 60000
+
+//константы для дневной и ночной температуры
+#define dayTemperature 22
+#define nightTemperature 18
+
+//константа для влажности
+#define constHumidity 75
 
 
 struct Sensor {
@@ -103,7 +122,9 @@ class Checker
 
 #define kTempSwitchPos 6
 #define nHeaterRelePosition "HeaterRelePosition"
-#define timePeriod 300000
+#define kTempSwitchPos 7
+#define nHumidifierRelePosition "HumidifierRelePosition"
+
 
 //адрес модема получателя будет совпадать с названием сенсора отправителя
 const byte tempretureSwitcherAddr[6] = "10000";
@@ -112,10 +133,6 @@ const byte tempretureSwitcherAddr[6] = "10000";
 int values[] = {0};
 //массив класса сенсоров, где будем хранить полученные значения
 indicators sensorValues[maxSensors];
-
-//константы для дневной и ночной температуры
-#define dayTemperature 22
-#define nightTemperature 18
 
 //константы, во сколько начинается и заканчивается день
 #define startDay 8
@@ -130,8 +147,8 @@ RF24 radioTransmitter(9, 10);
 RTC time;
 
 //создаем экземпляры класса для проверка температуры и модема
-Checker cModem;
 Checker cTemp;
+Checker cHumi;
 
 //реле
 int rele = 12;
@@ -180,13 +197,17 @@ void loop()
     radioReceiver.read(&inputSensor, sizeof(inputSensor));
     sendSensorToPort(inputSensor);
     saveDataFromSensor(inputSensor);
-   
   }
 
   //  проверяем значение температуры из массива на пригодность каждые 1 мин
-  if (cTemp.needToCheck(timePeriod)) {
+  if (cTemp.needToCheck(temperatureCheckPeriod)) {
     //внутри этой функции надо включить или выключить обогреватель, проверки уже есть
-    checkTemperature(values[kTemperature], setTemperature(), radioTransmitter);
+    checkSensor(kTemperature, nHeaterRelePosition, radioReceiver);
+  }
+
+  if (cHumi.needToCheck(humidityCheckPeriod)) {
+    //внутри этой функции надо включить или выключить обогреватель, проверки уже есть
+    checkSensor(kHumidity, nHumidifierRelePosition, radioReceiver);
   }
 
   delay(1000);
@@ -198,42 +219,26 @@ void saveDataFromSensor(Sensor data) {
 
   boolean matchSensor = false;
 
-  int num = 0;
   int i = 0;
-  while (sensorValues[i].controllerNumber != 0) {
-
-    if (sensorValues[i].controllerNumber == data.controllerNumber and sensorValues[i].key == data.key) {
-      matchSensor = true;
-      sensorValues[i].oldValue = sensorValues[i].value;
-      sensorValues[i].value = data.value;
-      sensorValues[i].delta = temperatureDelta;
-      sensorValues[i].thresholdLow = setTemperature() - sensorValues[i].delta;
-      sensorValues[i].thresholdHigh = setTemperature() + sensorValues[i].delta;
-    }
-
-    if (sensorValues[i].controllerNumber != 0) {
-      num++;
-    }
+  while ((sensorValues[i].controllerNumber != 0) and (!(sensorValues[i].controllerNumber == data.controllerNumber and sensorValues[i].key == data.key)) ) {
     i++;
   }
+  sensorValues[i].controllerNumber = data.controllerNumber;
+  sensorValues[i].key = data.key;
+  sensorValues[i].oldValue = sensorValues[i].value;
+  sensorValues[i].value = data.value;
 
-  if (not matchSensor) {
-    sensorValues[num].controllerNumber = data.controllerNumber;
-    sensorValues[num].key = data.key;
-    sensorValues[num].value = data.value;
-    sensorValues[num].oldValue = data.value;
-    sensorValues[num].delta = temperatureDelta;
-    sensorValues[num].thresholdLow = setTemperature() - sensorValues[num].delta;
-    sensorValues[num].thresholdHigh = setTemperature() + sensorValues[num].delta;
-    
-  }
+  sensorValues[i].delta = getDelta(data.key);
+  sensorValues[i].thresholdLow = getTreshold(data.key) - sensorValues[i].delta;
+  sensorValues[i].thresholdHigh = getTreshold(data.key) + sensorValues[i].delta;
+
 }
 
 //проверка температурных значений для включения обогревателя
-void checkTemperature(int value, int treshold, RF24 radio) {
+void checkSensor(int sensorType, String releName, RF24 radio) {
   int i = 0;
   while (sensorValues[i].controllerNumber != 0) {
-    if (sensorValues[i].key == kTemperature) {
+    if (sensorValues[i].key == sensorType) {
 
       if (sensorValues[i].value > sensorValues[i].thresholdHigh ) {
         if (sensorValues[i].oldValue > sensorValues[i].thresholdHigh ) {
@@ -255,11 +260,11 @@ void checkTemperature(int value, int treshold, RF24 radio) {
         sensorValues[i].highValueCounter = 0;
         sensorValues[i].lowValueCounter = 0;
       }
-      
+
       if (sensorValues[i].highValueCounter > maxCounterForSwitch) {
-        sendRelePosition(nHeaterRelePosition, radioReceiver, sensorValues[i].controllerNumber, turnOff);
+        sendRelePosition(releName, radio, sensorValues[i].controllerNumber, turnOff);
       } else if (sensorValues[i].lowValueCounter > maxCounterForSwitch) {
-        sendRelePosition(nHeaterRelePosition, radioReceiver, sensorValues[i].controllerNumber, turnOn);
+        sendRelePosition(releName, radio, sensorValues[i].controllerNumber, turnOn);
       } else {
 
       }
@@ -279,8 +284,12 @@ int setTemperature() {
   }
 }
 
+int setHumidity() {
+  return constHumidity;
+}
+
 void sendRelePosition(String key, RF24 radio, int addr, int pos) {
-  //здесь нужно перевести инт в байты, чтобы передать адрес отправления !!!!!!!!!!!!!!!!!!!!!!!!  
+  //здесь нужно перевести инт в байты, чтобы передать адрес отправления !!!!!!!!!!!!!!!!!!!!!!!!
   char buffer[32] = {0};
   String s = key + ";" + String(pos) + ";";
   s.toCharArray(buffer, 50);
@@ -292,7 +301,7 @@ void sendRelePosition(String key, RF24 radio, int addr, int pos) {
 }
 
 void sendToPortInt(int addr, String key, int value) {
-  String s = String(addr) + ";" +key + ";" + String(value) + ";";
+  String s = String(addr) + ";" + key + ";" + String(value) + ";";
   Serial.println(s);
 }
 
@@ -323,5 +332,21 @@ void sendSensorToPort(Sensor data) {
   }
   String output = String(data.controllerNumber) + ";" + keyStr + ";" + String(data.value) + ";";
   Serial.println(output);
+}
+
+int getDelta(int sensorKey) {
+  if (sensorKey == kTemperature) {
+    return temperatureDelta;
+  } else if (sensorKey == kHumidity) {
+    return humidityDelta;
+  }
+}
+
+int getTreshold(int sensorKey) {
+  if (sensorKey == kTemperature) {
+    return setTemperature();
+  } else if (sensorKey == kHumidity) {
+    return humidityDelta;
+  }
 }
 

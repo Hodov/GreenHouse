@@ -263,7 +263,7 @@ Sensor makeSensor(int contrNumber, int key, int value) {
 }
 
 void sendSensorToPort(Sensor data) {  
-  String s = String(data.controllerNumber) + ":" + String(data.key) + ":" + String(data.value);
+  String s = String(data.controllerNumber) + ";" + String(data.key) + ";" + String(data.value);
   Serial.println(s);
 }
 

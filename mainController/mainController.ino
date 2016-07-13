@@ -9,11 +9,8 @@ byte addresses[][6] = {"mainC"};
 #define maxSensors 15
 
 //сколько раз считаем повторения значения
-#define maxCounterForSwitch 5
-
-//допустимый диапазон нормального значения для сенсора
-#define temperatureDelta 2
-#define humidityDelta 5
+#define numRepetitionTemp 5
+#define numRepetitionSoil 1
 
 //как часто проверяем значения
 #define temperatureCheckPeriod 60000
@@ -23,6 +20,8 @@ byte addresses[][6] = {"mainC"};
 //константы для дневной и ночной температуры для нагрева
 #define dayTemperature 22
 #define nightTemperature 18
+//допустимый диапазон нормального значения для сенсора
+#define temperatureDelta 2
 
 //константы для дневной и ночной температуры для охлаждения
 #define dayTemperatureCooling 24
@@ -32,8 +31,13 @@ byte addresses[][6] = {"mainC"};
 #define startDay 8
 #define endDay 22
 
-//константа для влажности
+//константы для влажности
 #define constHumidity 75
+#define humidityDelta 5
+
+//константы для влажности почвы
+#define constSoil 400
+#define soilDelta 100
 
 
 struct Sensor {
@@ -50,6 +54,7 @@ struct indicators {
   int lowValueCounter[2] = {0, 0};
   int highValueCounter[2] = {0, 0};
 };
+
 
 class Checker
 {
@@ -106,8 +111,10 @@ class Checker
 #define nHumidifierRelePosition "HumidifierRelePosition"
 #define kWateringSwitchPos 8
 #define nWaterinRelePosition "WateringRelePosition"
-#define kWateringSwitchPos 9
+#define kCoolingSwitchPos 9
 #define nCoolingRelePosition "CoolingRelePosition"
+#define kSoilSwitchPos 9
+#define nSoilRelePosition "SoilRelePosition"
 
 //массив класса сенсоров, где будем хранить полученные значения
 indicators sensorValues[maxSensors];
@@ -225,10 +232,10 @@ void checkSensorValue(int i, int minValue, int maxValue, int numCounter) {
   }
 }
 
-void sendAction(int i, String releName, int minValueAction, int maxValueAction, int numCounter) {
-  if (sensorValues[i].highValueCounter[numCounter] > maxCounterForSwitch) {
+int sendAction(int i, String releName, int minValueAction, int maxValueAction, int numCounter, int repetitions) {
+  if (sensorValues[i].highValueCounter[numCounter] > repetitions) {
     sendRelePosition(releName, sensorValues[i].controllerNumber, maxValueAction);
-  } else if (sensorValues[i].lowValueCounter[numCounter] > maxCounterForSwitch) {
+  } else if (sensorValues[i].lowValueCounter[numCounter] > repetitions) {
     sendRelePosition(releName, sensorValues[i].controllerNumber, minValueAction);
   } else {
   }
@@ -239,7 +246,9 @@ void checkAction(int sensorType, String releName, int minValue, int maxValue, in
   while (sensorValues[i].controllerNumber != 0) {
     if (sensorValues[i].key == sensorType) {
       checkSensorValue(i, minValue, maxValue, numCounter);
-      sendAction(i, releName, minValueAction, maxValueAction, numCounter);
+      if ((sensorType == kTemperature) or (sensorType == kHumidity)) {
+        sendAction(i, releName, minValueAction, maxValueAction, numCounter, getNumRepetitions(sensorType));
+      }
     }
     i++;
   }
@@ -265,6 +274,9 @@ void checkHumidifier() {
   checkHumidity(nHumidifierRelePosition, getTreshold(kHumidity, "main") - getDelta(kHumidity), getTreshold(kHumidity, "main") + getDelta(kHumidity), turnOn, turnOff, 0);
 }
 
+void checkSoil() {
+  checkAction(kSoil, nSoilRelePosition, getTreshold(kSoil, "main") - getDelta(kSoil), getTreshold(kSoil, "main") + getDelta(kSoil), turnOn, turnOff, 0);
+}
 
 void checkWatering() {
   if (reqTime()) {
@@ -306,6 +318,10 @@ int setTemperature(String purpose) {
 
 int setHumidity() {
   return constHumidity;
+}
+
+int setSoil() {
+  return constSoil;
 }
 
 void sendRelePosition(String key, int addr, int pos) {
@@ -359,6 +375,8 @@ int getDelta(int sensorKey) {
     return temperatureDelta;
   } else if (sensorKey == kHumidity) {
     return humidityDelta;
+  } else if (sensorKey == kSoil) {
+    return soilDelta;
   }
 }
 
@@ -367,6 +385,18 @@ int getTreshold(int sensorKey, String purpose) {
     return setTemperature(purpose);
   } else if (sensorKey == kHumidity) {
     return setHumidity();
+  } else if (sensorKey == kSoil) {
+    return setSoil();
+  }
+}
+
+int getNumRepetitions(int sensor) {
+  if (sensor == kTemperature) {
+    return numRepetitionTemp;
+  } else if (sensor == kHumidity) {
+    return numRepetitionTemp;
+  } else if (sensor == kSoil) {
+    return numRepetitionSoil;
   }
 }
 

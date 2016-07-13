@@ -96,12 +96,11 @@ DHT dht_22(DHTPIN, DHTTYPE);
 
 //датчик влажности почвы
 int soilPin = A1;
+//фоторезистор
+const int pinPhoto = A0;
 
 //датчик освещенности
 BH1750 lightMeter;
-
-//фоторезистор
-const int pinPhoto = A0;
 
 //создаем экземпляры класса для проверка температуры и модема
 Checker cTemp;

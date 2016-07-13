@@ -16,7 +16,7 @@ byte addresses[][6] = {"mainC"};
 #define humidityDelta 5
 
 //как часто проверяем значения
-#define temperatureCheckPeriod 60000
+#define temperatureCheckPeriod 1000
 #define humidityCheckPeriod 60000
 #define wateringCheckPeriod 60000
 
@@ -47,9 +47,8 @@ struct indicators {
   int key;
   int value;
   int oldValue;
-  int lowValueCounter[2] = {0,0};
-  int highValueCounter[2] = {0,0};
-  int releValue = 0;
+  int lowValueCounter[2] = {0, 0};
+  int highValueCounter[2] = {0, 0};
 };
 
 class Checker
@@ -113,8 +112,6 @@ class Checker
 //массив класса сенсоров, где будем хранить полученные значения
 indicators sensorValues[maxSensors];
 
-
-
 //первый модем
 //второй модем
 RF24 radioReceiver(7, 8);
@@ -131,6 +128,10 @@ Checker cWatering;
 //реле
 int rele = 12;
 
+Sensor inputSensor;
+
+
+unsigned long prevMillis = 0;
 //=========================SETUP============================
 void setup()
 {
@@ -145,10 +146,9 @@ void setup()
   } else {
   }
 
-  //можно установить время ()
+  //не удалять, можно установить время
   //0 сек, 18 мин, 10 часов, 26 мая 16 года, 4 день недели
-  //time.settime(0,18,10,26,05,16,4);
-
+  //time.settime(0,27,10,13,07,16,3);
 
   // первый модем работает на отправку (этого модема не будет !!!!!!!!!!)
   radioTransmitter.begin();
@@ -169,14 +169,13 @@ void setup()
 //=========================LOOP=============================
 void loop()
 {
-  Sensor inputSensor;
   if (radioReceiver.available())
   {
     radioReceiver.read(&inputSensor, sizeof(inputSensor));
     sendSensorToPort(inputSensor);
     saveDataFromSensor(inputSensor);
   }
-
+  
   //  проверяем значение температуры из массива на пригодность каждые 1 мин
   if (cTemp.needToCheck(temperatureCheckPeriod)) {
     //внутри этой функции надо включить или выключить обогреватель, проверки уже есть
@@ -190,7 +189,8 @@ void loop()
   }
 
   if (cWatering.needToCheck(wateringCheckPeriod)) {
-
+    //если понедельник, если время 9 часов утра
+    checkWatering();
   }
   delay(1000);
 
@@ -209,16 +209,24 @@ void saveDataFromSensor(Sensor data) {
   sensorValues[i].key = data.key;
   sensorValues[i].oldValue = sensorValues[i].value;
   sensorValues[i].value = data.value;
-
-  //sensorValues[i].delta = getDelta(data.key);
-  //sensorValues[i].thresholdLow = getTreshold(data.key) - sensorValues[i].delta;
-  //sensorValues[i].thresholdHigh = getTreshold(data.key) + sensorValues[i].delta;
-
 }
 
 //проверка температурных значений для включения обогревателя
 void checkSensor(int sensorType, String releName, RF24 radio, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
   int i = 0;
+  /*
+  Serial.println("Begin");
+  Serial.println(sensorType);
+  Serial.println(releName);
+  Serial.println(minValue);
+  Serial.println(maxValue);
+  Serial.println(minValueAction);
+  Serial.println(maxValueAction);
+  Serial.println(numCounter);
+  Serial.println(sensorValues[i].value);
+  Serial.println(sensorValues[i].highValueCounter[numCounter]);
+  Serial.println(sensorValues[i].lowValueCounter[numCounter]);
+  */
   while (sensorValues[i].controllerNumber != 0) {
     if (sensorValues[i].key == sensorType) {
 
@@ -254,6 +262,26 @@ void checkSensor(int sensorType, String releName, RF24 radio, int minValue, int 
     }
     i++;
   }
+}
+
+void checkWatering() {
+  if (reqTime()) {
+    if (reqSoil()) {
+      startWatering();
+
+    }
+  }
+}
+
+bool reqTime() {
+  return true;
+}
+
+bool reqSoil() {
+  return true;
+}
+
+void startWatering() {
 
 }
 

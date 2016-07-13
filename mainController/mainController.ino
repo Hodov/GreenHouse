@@ -16,9 +16,9 @@ byte addresses[][6] = {"mainC"};
 #define humidityDelta 5
 
 //как часто проверяем значения
-#define temperatureCheckPeriod 1000
-#define humidityCheckPeriod 60000
-#define wateringCheckPeriod 60000
+#define temperatureCheckPeriod 5000
+#define humidityCheckPeriod 5000
+#define wateringCheckPeriod 5000
 
 //константы для дневной и ночной температуры для нагрева
 #define dayTemperature 22
@@ -178,14 +178,12 @@ void loop()
 
   //  проверяем значение температуры из массива на пригодность каждые 1 мин
   if (cTemp.needToCheck(temperatureCheckPeriod)) {
-    //внутри этой функции надо включить или выключить обогреватель, проверки уже есть
-    checkAction(kTemperature, nHeaterRelePosition, radioReceiver, getTreshold(kTemperature, "heater") - getDelta(kTemperature), getTreshold(kTemperature, "heater") + getDelta(kTemperature), turnOn, turnOff, 0);
-    checkAction(kTemperature, nCoolingRelePosition, radioReceiver, getTreshold(kTemperature, "cooler") - getDelta(kTemperature), getTreshold(kTemperature, "cooler") + getDelta(kTemperature), turnOff, turnOn, 1);
+    checkHeater(radioReceiver);
+    checkCooling(radioReceiver);
   }
 
-  if (cHumi.needToCheck(humidityCheckPeriod)) {
-    //внутри этой функции надо включить или выключить обогреватель, проверки уже есть
-    checkAction(kHumidity, nHumidifierRelePosition, radioReceiver, getTreshold(kHumidity, "main") - getDelta(kHumidity), getTreshold(kHumidity, "main") + getDelta(kHumidity), turnOn, turnOff, 0);
+  if (cHumi.needToCheck(humidityCheckPeriod)) {    
+    checkHumidifier(radioReceiver);
   }
 
   if (cWatering.needToCheck(wateringCheckPeriod)) {
@@ -258,6 +256,26 @@ void checkAction(int sensorType, String releName, RF24 radio, int minValue, int 
     sendAction(i, releName, radio, minValueAction, maxValueAction, numCounter);
     i++;
   }
+}
+
+void checkTemperature(String releName, RF24 radio, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
+  checkAction(kTemperature, releName, radio, minValue, maxValue, minValueAction, maxValueAction, numCounter);
+}
+
+void checkHeater(RF24 radio) {
+  checkTemperature(nHeaterRelePosition, radio, getTreshold(kTemperature, "heater") - getDelta(kTemperature), getTreshold(kTemperature, "heater") + getDelta(kTemperature), turnOn, turnOff, 0);
+}
+
+void checkCooling(RF24 radio) {
+  checkTemperature(nCoolingRelePosition, radio, getTreshold(kTemperature, "cooler") - getDelta(kTemperature), getTreshold(kTemperature, "cooler") + getDelta(kTemperature), turnOff, turnOn, 1);
+}
+
+void checkHumidity(String releName, RF24 radio, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
+  checkAction(kHumidity, releName, radio, minValue, maxValue, minValueAction, maxValueAction, numCounter);
+}
+
+void checkHumidifier(RF24 radio) {
+  checkHumidity(nHumidifierRelePosition, radio, getTreshold(kHumidity, "main") - getDelta(kHumidity), getTreshold(kHumidity, "main") + getDelta(kHumidity), turnOn, turnOff, 0);
 }
 
 

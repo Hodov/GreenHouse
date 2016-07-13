@@ -175,17 +175,17 @@ void loop()
     sendSensorToPort(inputSensor);
     saveDataFromSensor(inputSensor);
   }
-  
+
   //  проверяем значение температуры из массива на пригодность каждые 1 мин
   if (cTemp.needToCheck(temperatureCheckPeriod)) {
     //внутри этой функции надо включить или выключить обогреватель, проверки уже есть
-    checkSensor(kTemperature, nHeaterRelePosition, radioReceiver, getTreshold(kTemperature, "heater") - getDelta(kTemperature), getTreshold(kTemperature, "heater") + getDelta(kTemperature), turnOn, turnOff, 0);
-    checkSensor(kTemperature, nCoolingRelePosition, radioReceiver, getTreshold(kTemperature, "cooler") - getDelta(kTemperature), getTreshold(kTemperature, "cooler") + getDelta(kTemperature), turnOff, turnOn, 1);
+    checkAction(kTemperature, nHeaterRelePosition, radioReceiver, getTreshold(kTemperature, "heater") - getDelta(kTemperature), getTreshold(kTemperature, "heater") + getDelta(kTemperature), turnOn, turnOff, 0);
+    checkAction(kTemperature, nCoolingRelePosition, radioReceiver, getTreshold(kTemperature, "cooler") - getDelta(kTemperature), getTreshold(kTemperature, "cooler") + getDelta(kTemperature), turnOff, turnOn, 1);
   }
 
   if (cHumi.needToCheck(humidityCheckPeriod)) {
     //внутри этой функции надо включить или выключить обогреватель, проверки уже есть
-    checkSensor(kHumidity, nHumidifierRelePosition, radioReceiver, getTreshold(kHumidity, "main") - getDelta(kHumidity), getTreshold(kHumidity, "main") + getDelta(kHumidity), turnOn, turnOff, 0);
+    checkAction(kHumidity, nHumidifierRelePosition, radioReceiver, getTreshold(kHumidity, "main") - getDelta(kHumidity), getTreshold(kHumidity, "main") + getDelta(kHumidity), turnOn, turnOff, 0);
   }
 
   if (cWatering.needToCheck(wateringCheckPeriod)) {
@@ -212,57 +212,54 @@ void saveDataFromSensor(Sensor data) {
 }
 
 //проверка температурных значений для включения обогревателя
-void checkSensor(int sensorType, String releName, RF24 radio, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
-  int i = 0;
-  /*
-  Serial.println("Begin");
-  Serial.println(sensorType);
-  Serial.println(releName);
-  Serial.println(minValue);
-  Serial.println(maxValue);
-  Serial.println(minValueAction);
-  Serial.println(maxValueAction);
-  Serial.println(numCounter);
-  Serial.println(sensorValues[i].value);
-  Serial.println(sensorValues[i].highValueCounter[numCounter]);
-  Serial.println(sensorValues[i].lowValueCounter[numCounter]);
-  */
-  while (sensorValues[i].controllerNumber != 0) {
-    if (sensorValues[i].key == sensorType) {
+void checkSensor(int i, int sensorType, int minValue, int maxValue, int numCounter) {
 
-      if (sensorValues[i].value > maxValue ) {
-        if (sensorValues[i].oldValue > maxValue ) {
-          sensorValues[i].highValueCounter[numCounter]++;
-          sensorValues[i].lowValueCounter[numCounter] = 0;
-        } else {
-          sensorValues[i].highValueCounter[numCounter] = 1;
-          sensorValues[i].lowValueCounter[numCounter] = 0;
-        }
-      } else if (sensorValues[i].value < minValue ) {
-        if (sensorValues[i].oldValue < minValue ) {
-          sensorValues[i].highValueCounter[numCounter] = 0;
-          sensorValues[i].lowValueCounter[numCounter]++;
-        } else {
-          sensorValues[i].highValueCounter[numCounter] = 0;
-          sensorValues[i].lowValueCounter[numCounter] = 1;
-        }
+  if (sensorValues[i].key == sensorType) {
+
+    if (sensorValues[i].value > maxValue ) {
+      if (sensorValues[i].oldValue > maxValue ) {
+        sensorValues[i].highValueCounter[numCounter]++;
+        sensorValues[i].lowValueCounter[numCounter] = 0;
       } else {
-        sensorValues[i].highValueCounter[numCounter] = 0;
+        sensorValues[i].highValueCounter[numCounter] = 1;
         sensorValues[i].lowValueCounter[numCounter] = 0;
       }
-
-      if (sensorValues[i].highValueCounter[numCounter] > maxCounterForSwitch) {
-        sendRelePosition(releName, radio, sensorValues[i].controllerNumber, maxValueAction);
-      } else if (sensorValues[i].lowValueCounter[numCounter] > maxCounterForSwitch) {
-        sendRelePosition(releName, radio, sensorValues[i].controllerNumber, minValueAction);
+    } else if (sensorValues[i].value < minValue ) {
+      if (sensorValues[i].oldValue < minValue ) {
+        sensorValues[i].highValueCounter[numCounter] = 0;
+        sensorValues[i].lowValueCounter[numCounter]++;
       } else {
-
+        sensorValues[i].highValueCounter[numCounter] = 0;
+        sensorValues[i].lowValueCounter[numCounter] = 1;
       }
-
+    } else {
+      sensorValues[i].highValueCounter[numCounter] = 0;
+      sensorValues[i].lowValueCounter[numCounter] = 0;
     }
+
+
+  }
+}
+
+void sendAction(int i, String releName, RF24 radio, int minValueAction, int maxValueAction, int numCounter) {
+  if (sensorValues[i].highValueCounter[numCounter] > maxCounterForSwitch) {
+    sendRelePosition(releName, radio, sensorValues[i].controllerNumber, maxValueAction);
+  } else if (sensorValues[i].lowValueCounter[numCounter] > maxCounterForSwitch) {
+    sendRelePosition(releName, radio, sensorValues[i].controllerNumber, minValueAction);
+  } else {
+
+  }
+}
+
+void checkAction(int sensorType, String releName, RF24 radio, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
+  int i = 0;
+  while (sensorValues[i].controllerNumber != 0) {
+    checkSensor(i, sensorType, minValue, maxValue, numCounter);
+    sendAction(i, releName, radio, minValueAction, maxValueAction, numCounter);
     i++;
   }
 }
+
 
 void checkWatering() {
   if (reqTime()) {

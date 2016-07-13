@@ -16,9 +16,9 @@ byte addresses[][6] = {"mainC"};
 #define humidityDelta 5
 
 //как часто проверяем значения
-#define temperatureCheckPeriod 5000
-#define humidityCheckPeriod 5000
-#define wateringCheckPeriod 5000
+#define temperatureCheckPeriod 60000
+#define humidityCheckPeriod 60000
+#define wateringCheckPeriod 60000
 
 //константы для дневной и ночной температуры для нагрева
 #define dayTemperature 22
@@ -113,9 +113,7 @@ class Checker
 indicators sensorValues[maxSensors];
 
 //первый модем
-//второй модем
-RF24 radioReceiver(7, 8);
-RF24 radioTransmitter(9, 10);
+RF24 radio(7, 8);
 
 //инициализируем датчик времени
 RTC time;
@@ -150,16 +148,10 @@ void setup()
   //0 сек, 18 мин, 10 часов, 26 мая 16 года, 4 день недели
   //time.settime(0,27,10,13,07,16,3);
 
-  // первый модем работает на отправку (этого модема не будет !!!!!!!!!!)
-  radioTransmitter.begin();
-  radioTransmitter.setRetries(15, 15);
-  radioTransmitter.openWritingPipe(addresses[0]);
-  radioTransmitter.stopListening();
-
   // первый модем работает на прием
-  radioReceiver.begin();
-  radioReceiver.openReadingPipe(1, addresses[0]);
-  radioReceiver.startListening();
+  radio.begin();
+  radio.openReadingPipe(1, addresses[0]);
+  radio.startListening();
 
   //отправляем в мониторинг значения по умолчанию для реле
   //sendToPortInt(nTempSwitchPos, 0);
@@ -169,21 +161,21 @@ void setup()
 //=========================LOOP=============================
 void loop()
 {
-  if (radioReceiver.available())
+  if (radio.available())
   {
-    radioReceiver.read(&inputSensor, sizeof(inputSensor));
+    radio.read(&inputSensor, sizeof(inputSensor));
     sendSensorToPort(inputSensor);
     saveDataFromSensor(inputSensor);
   }
 
   //  проверяем значение температуры из массива на пригодность каждые 1 мин
   if (cTemp.needToCheck(temperatureCheckPeriod)) {
-    checkHeater(radioReceiver);
-    checkCooling(radioReceiver);
+    checkHeater();
+    checkCooling();
   }
 
-  if (cHumi.needToCheck(humidityCheckPeriod)) {    
-    checkHumidifier(radioReceiver);
+  if (cHumi.needToCheck(humidityCheckPeriod)) {
+    checkHumidifier();
   }
 
   if (cWatering.needToCheck(wateringCheckPeriod)) {
@@ -210,72 +202,67 @@ void saveDataFromSensor(Sensor data) {
 }
 
 //проверка температурных значений для включения обогревателя
-void checkSensor(int i, int sensorType, int minValue, int maxValue, int numCounter) {
-
-  if (sensorValues[i].key == sensorType) {
-
-    if (sensorValues[i].value > maxValue ) {
-      if (sensorValues[i].oldValue > maxValue ) {
-        sensorValues[i].highValueCounter[numCounter]++;
-        sensorValues[i].lowValueCounter[numCounter] = 0;
-      } else {
-        sensorValues[i].highValueCounter[numCounter] = 1;
-        sensorValues[i].lowValueCounter[numCounter] = 0;
-      }
-    } else if (sensorValues[i].value < minValue ) {
-      if (sensorValues[i].oldValue < minValue ) {
-        sensorValues[i].highValueCounter[numCounter] = 0;
-        sensorValues[i].lowValueCounter[numCounter]++;
-      } else {
-        sensorValues[i].highValueCounter[numCounter] = 0;
-        sensorValues[i].lowValueCounter[numCounter] = 1;
-      }
+void checkSensorValue(int i, int minValue, int maxValue, int numCounter) {
+  if (sensorValues[i].value > maxValue ) {
+    if (sensorValues[i].oldValue > maxValue ) {
+      sensorValues[i].highValueCounter[numCounter]++;
+      sensorValues[i].lowValueCounter[numCounter] = 0;
     } else {
-      sensorValues[i].highValueCounter[numCounter] = 0;
+      sensorValues[i].highValueCounter[numCounter] = 1;
       sensorValues[i].lowValueCounter[numCounter] = 0;
     }
-
-
-  }
-}
-
-void sendAction(int i, String releName, RF24 radio, int minValueAction, int maxValueAction, int numCounter) {
-  if (sensorValues[i].highValueCounter[numCounter] > maxCounterForSwitch) {
-    sendRelePosition(releName, radio, sensorValues[i].controllerNumber, maxValueAction);
-  } else if (sensorValues[i].lowValueCounter[numCounter] > maxCounterForSwitch) {
-    sendRelePosition(releName, radio, sensorValues[i].controllerNumber, minValueAction);
+  } else if (sensorValues[i].value < minValue ) {
+    if (sensorValues[i].oldValue < minValue ) {
+      sensorValues[i].highValueCounter[numCounter] = 0;
+      sensorValues[i].lowValueCounter[numCounter]++;
+    } else {
+      sensorValues[i].highValueCounter[numCounter] = 0;
+      sensorValues[i].lowValueCounter[numCounter] = 1;
+    }
   } else {
-
+    sensorValues[i].highValueCounter[numCounter] = 0;
+    sensorValues[i].lowValueCounter[numCounter] = 0;
   }
 }
 
-void checkAction(int sensorType, String releName, RF24 radio, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
+void sendAction(int i, String releName, int minValueAction, int maxValueAction, int numCounter) {
+  if (sensorValues[i].highValueCounter[numCounter] > maxCounterForSwitch) {
+    sendRelePosition(releName, sensorValues[i].controllerNumber, maxValueAction);
+  } else if (sensorValues[i].lowValueCounter[numCounter] > maxCounterForSwitch) {
+    sendRelePosition(releName, sensorValues[i].controllerNumber, minValueAction);
+  } else {
+  }
+}
+
+void checkAction(int sensorType, String releName, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
   int i = 0;
   while (sensorValues[i].controllerNumber != 0) {
-    checkSensor(i, sensorType, minValue, maxValue, numCounter);
-    sendAction(i, releName, radio, minValueAction, maxValueAction, numCounter);
+    if (sensorValues[i].key == sensorType) {
+      checkSensorValue(i, minValue, maxValue, numCounter);
+      sendAction(i, releName, minValueAction, maxValueAction, numCounter);
+    }
     i++;
   }
 }
 
-void checkTemperature(String releName, RF24 radio, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
-  checkAction(kTemperature, releName, radio, minValue, maxValue, minValueAction, maxValueAction, numCounter);
+void checkTemperature(String releName, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
+  checkAction(kTemperature, releName, minValue, maxValue, minValueAction, maxValueAction, numCounter);
 }
 
-void checkHeater(RF24 radio) {
-  checkTemperature(nHeaterRelePosition, radio, getTreshold(kTemperature, "heater") - getDelta(kTemperature), getTreshold(kTemperature, "heater") + getDelta(kTemperature), turnOn, turnOff, 0);
+void checkHeater() {
+  checkTemperature(nHeaterRelePosition, getTreshold(kTemperature, "heater") - getDelta(kTemperature), getTreshold(kTemperature, "heater") + getDelta(kTemperature), turnOn, turnOff, 0);
 }
 
-void checkCooling(RF24 radio) {
-  checkTemperature(nCoolingRelePosition, radio, getTreshold(kTemperature, "cooler") - getDelta(kTemperature), getTreshold(kTemperature, "cooler") + getDelta(kTemperature), turnOff, turnOn, 1);
+void checkCooling() {
+  checkTemperature(nCoolingRelePosition, getTreshold(kTemperature, "cooler") - getDelta(kTemperature), getTreshold(kTemperature, "cooler") + getDelta(kTemperature), turnOff, turnOn, 1);
 }
 
-void checkHumidity(String releName, RF24 radio, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
-  checkAction(kHumidity, releName, radio, minValue, maxValue, minValueAction, maxValueAction, numCounter);
+void checkHumidity(String releName, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
+  checkAction(kHumidity, releName, minValue, maxValue, minValueAction, maxValueAction, numCounter);
 }
 
-void checkHumidifier(RF24 radio) {
-  checkHumidity(nHumidifierRelePosition, radio, getTreshold(kHumidity, "main") - getDelta(kHumidity), getTreshold(kHumidity, "main") + getDelta(kHumidity), turnOn, turnOff, 0);
+void checkHumidifier() {
+  checkHumidity(nHumidifierRelePosition, getTreshold(kHumidity, "main") - getDelta(kHumidity), getTreshold(kHumidity, "main") + getDelta(kHumidity), turnOn, turnOff, 0);
 }
 
 
@@ -321,7 +308,7 @@ int setHumidity() {
   return constHumidity;
 }
 
-void sendRelePosition(String key, RF24 radio, int addr, int pos) {
+void sendRelePosition(String key, int addr, int pos) {
   //здесь нужно перевести инт в байты, чтобы передать адрес отправления !!!!!!!!!!!!!!!!!!!!!!!!
   char buffer[32] = {0};
   String s = key + ";" + String(pos) + ";";

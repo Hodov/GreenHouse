@@ -22,7 +22,6 @@ while 1:
 		print("Connection error")
 
 	if re.match(r'\w+;\w+;\w+',t):
-		print "Send"
 		s = ""
 		i = 0
 		while t[i]!=';' and len(t) >= i:

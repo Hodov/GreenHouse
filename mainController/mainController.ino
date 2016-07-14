@@ -1,44 +1,54 @@
 //адрес мейн контроллера
 byte addresses[][6] = {"mainC"};
 
-//какой модуль часов использовать
-#define rtc_old true
-#define rtc_new false
+//какой модуль часов используется, выбрать один
+#define rtc_1302 true
+#define rtc_3231 false
 
-//место для сенсоров в памяти
+//количество места для сенсоров в массиве
 #define maxSensors 15
 
-//сколько раз считаем повторения значения
-#define numRepetitionTemp 5
-#define numRepetitionSoil 1
+//ТЕМПЕРАТУРА
+#define temperatureCheckPeriod 60000    //проверять значение температуры раз в минуту
+#define numRepetitionTemperature 5      //хитрый счетчик
+#define startDay 8
+#define endDay 22
+#define temperatureDelta 2              //дельта от порогового значения
 
-//как часто проверяем значения
-#define temperatureCheckPeriod 60000
-#define humidityCheckPeriod 60000
-#define wateringCheckPeriod 60000
+//нагрев
+#define dayTemperature 22               //дневная температура
+#define nightTemperature 18             //ночная температура
 
-//константы для дневной и ночной температуры для нагрева
-#define dayTemperature 22
-#define nightTemperature 18
-//допустимый диапазон нормального значения для сенсора
-#define temperatureDelta 2
-
-//константы для дневной и ночной температуры для охлаждения
+//охлаждение
 #define dayTemperatureCooling 24
 #define nightTemperatureCooling 20
 
-//константы, во сколько начинается и заканчивается день для смены температуры
-#define startDay 8
-#define endDay 22
-
-//константы для влажности
+//ВЛАЖНОСТЬ
+#define humidityCheckPeriod 60000
+#define numRepetitionHumidity 5
 #define constHumidity 75
 #define humidityDelta 5
 
-//константы для влажности почвы
+//ПОЧВА
+#define wateringCheckPeriod 60000
+#define numRepetitionSoil 1
 #define constSoil 400
 #define soilDelta 100
 
+
+//ОСВЕЩЕНИЕ
+#define numRepetitionLight 5
+#define lightningCheckPeriod 10000
+#define startDayLight 8
+#define endDayLight 22
+#define constLight 600
+#define lightDelta 50
+
+//ФОТОДАТЧИК, ПОЧТИ ТО ЖЕ, ЧТО И ОСВЕЩЕНИЕ
+
+#define numRepetitionPhoto 5
+#define constPhoto 600
+#define photoDelta 50
 
 struct Sensor {
   int controllerNumber = 0;
@@ -55,21 +65,17 @@ struct indicators {
   int highValueCounter[2] = {0, 0};
 };
 
-
 class Checker
 {
     // время предыдущей проверки
     unsigned long prevMillis = 0;
-
   public:
     Checker()
     {
       prevMillis = 0;
     }
-
     //как частро проверять по времени
     boolean needToCheck(long period) {
-
       unsigned long currentMillis = millis();
       if ((currentMillis - prevMillis >= period)  || (currentMillis < prevMillis)) {
         prevMillis = currentMillis;
@@ -86,11 +92,7 @@ class Checker
 #include <dht11.h>
 #include <RTC.h>
 
-
-//КОНСТАНТЫ
-//==============================================================================
-
-//описание названия и расположения в массиве для хранения данных с датчиков
+//описание типов и названий датчиков
 #define turnOn 1
 #define turnOff 0
 #define kTemperature 1
@@ -115,11 +117,13 @@ class Checker
 #define nCoolingRelePosition "CoolingRelePosition"
 #define kSoilSwitchPos 9
 #define nSoilRelePosition "SoilRelePosition"
+#define kLightSwitchPos 10
+#define nLightRelePosition "LightRelePosition"
 
 //массив класса сенсоров, где будем хранить полученные значения
 indicators sensorValues[maxSensors];
 
-//первый модем
+//МОДЕМ
 RF24 radio(7, 8);
 
 //инициализируем датчик времени
@@ -129,14 +133,10 @@ RTC time;
 Checker cTemp;
 Checker cHumi;
 Checker cWatering;
-
-//реле
-int rele = 12;
+Checker cLighting;
 
 Sensor inputSensor;
 
-
-unsigned long prevMillis = 0;
 //=========================SETUP============================
 void setup()
 {
@@ -144,9 +144,9 @@ void setup()
   Serial.begin(9600);
 
   //time модуль
-  if (rtc_old) {
+  if (rtc_1302) {
     time.begin(RTC_DS1302, 5, 3, 4);
-  } else if (rtc_new) {
+  } else if (rtc_3231) {
     time.begin(RTC_DS3231);
   } else {
   }
@@ -155,13 +155,10 @@ void setup()
   //0 сек, 18 мин, 10 часов, 26 мая 16 года, 4 день недели
   //time.settime(0,27,10,13,07,16,3);
 
-  // первый модем работает на прием
+  //модем по умолчанию работает на прием
   radio.begin();
   radio.openReadingPipe(1, addresses[0]);
   radio.startListening();
-
-  //отправляем в мониторинг значения по умолчанию для реле
-  //sendToPortInt(nTempSwitchPos, 0);
 
 }
 //==========================================================
@@ -185,19 +182,24 @@ void loop()
     checkHumidifier();
   }
 
+  // полив не сделан
   if (cWatering.needToCheck(wateringCheckPeriod)) {
-    //если понедельник, если время 9 часов утра
-    checkWatering();
+    //checkWatering();
   }
-  delay(1000);
+  
+  if (cLighting.needToCheck(lightningCheckPeriod)) {
+    checkLight();
+  }
+
+  delay(250);
 
 }
 //==========================================================
 
+
+// СОХРАНЯЕМ ДАННЫЕ В МАССИВ, КОТОРЫЕ ПРИШЛИ В МОДЕМ
 void saveDataFromSensor(Sensor data) {
-
   boolean matchSensor = false;
-
   int i = 0;
   while ((sensorValues[i].controllerNumber != 0) and (!(sensorValues[i].controllerNumber == data.controllerNumber and sensorValues[i].key == data.key)) ) {
     i++;
@@ -208,7 +210,7 @@ void saveDataFromSensor(Sensor data) {
   sensorValues[i].value = data.value;
 }
 
-//проверка температурных значений для включения обогревателя
+//ПРОВЕРКА ЗНАЧЕНИЙ СЕНСОРА НА ПЕРЕХОД ПОГРАНИЧНОГО ЗНАЧЕНИЯ, ФИКСИРУЕМ В КАКУЮ СТОРОНУ ПЕРЕШЛО ЗНАЧЕНИЯ
 void checkSensorValue(int i, int minValue, int maxValue, int numCounter) {
   if (sensorValues[i].value > maxValue ) {
     if (sensorValues[i].oldValue > maxValue ) {
@@ -232,6 +234,7 @@ void checkSensorValue(int i, int minValue, int maxValue, int numCounter) {
   }
 }
 
+//ОТПРАВЛЯЕМ КОМАНДУ ЭКШН КОНТРОЛЛЕРУ, ЕСЛИ ЗНАЧЕНИЕ ПЕРЕШЛО ПОРОГОВОЕ ЗНАЧЕНИЕ
 int sendAction(int i, String releName, int minValueAction, int maxValueAction, int numCounter, int repetitions) {
   if (sensorValues[i].highValueCounter[numCounter] > repetitions) {
     sendRelePosition(releName, sensorValues[i].controllerNumber, maxValueAction);
@@ -241,12 +244,13 @@ int sendAction(int i, String releName, int minValueAction, int maxValueAction, i
   }
 }
 
+//ПРОВЕРЯЕМ ДЛЯ СЕНСОРА ЗНАЧЕНИЕ И ВЫПОЛНЯЕМ ЭКШН, ЕСЛИ НУЖНО
 void checkAction(int sensorType, String releName, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
   int i = 0;
   while (sensorValues[i].controllerNumber != 0) {
     if (sensorValues[i].key == sensorType) {
       checkSensorValue(i, minValue, maxValue, numCounter);
-      if ((sensorType == kTemperature) or (sensorType == kHumidity)) {
+      if ((sensorType == kTemperature) or (sensorType == kHumidity) or (sensorType == kLight) or (sensorType == kPhoto)) {
         sendAction(i, releName, minValueAction, maxValueAction, numCounter, getNumRepetitions(sensorType));
       }
     }
@@ -254,51 +258,7 @@ void checkAction(int sensorType, String releName, int minValue, int maxValue, in
   }
 }
 
-void checkTemperature(String releName, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
-  checkAction(kTemperature, releName, minValue, maxValue, minValueAction, maxValueAction, numCounter);
-}
-
-void checkHeater() {
-  checkTemperature(nHeaterRelePosition, getTreshold(kTemperature, "heater") - getDelta(kTemperature), getTreshold(kTemperature, "heater") + getDelta(kTemperature), turnOn, turnOff, 0);
-}
-
-void checkCooling() {
-  checkTemperature(nCoolingRelePosition, getTreshold(kTemperature, "cooler") - getDelta(kTemperature), getTreshold(kTemperature, "cooler") + getDelta(kTemperature), turnOff, turnOn, 1);
-}
-
-void checkHumidity(String releName, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
-  checkAction(kHumidity, releName, minValue, maxValue, minValueAction, maxValueAction, numCounter);
-}
-
-void checkHumidifier() {
-  checkHumidity(nHumidifierRelePosition, getTreshold(kHumidity, "main") - getDelta(kHumidity), getTreshold(kHumidity, "main") + getDelta(kHumidity), turnOn, turnOff, 0);
-}
-
-void checkSoil() {
-  checkAction(kSoil, nSoilRelePosition, getTreshold(kSoil, "main") - getDelta(kSoil), getTreshold(kSoil, "main") + getDelta(kSoil), turnOn, turnOff, 0);
-}
-
-void checkWatering() {
-  if (reqTime()) {
-    if (reqSoil()) {
-      startWatering();
-
-    }
-  }
-}
-
-bool reqTime() {
-  return true;
-}
-
-bool reqSoil() {
-  return true;
-}
-
-void startWatering() {
-
-}
-
+//=====================ПРОВЕРКА ТЕМПЕРАТУРЫ =====================
 int setTemperature(String purpose) {
   int hour = atoi(time.gettime("H"));
   if (hour > startDay and hour < endDay) {
@@ -316,12 +276,89 @@ int setTemperature(String purpose) {
   }
 }
 
+void checkTemperature(String releName, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
+  checkAction(kTemperature, releName, minValue, maxValue, minValueAction, maxValueAction, numCounter);
+}
+
+void checkHeater() {
+  checkTemperature(nHeaterRelePosition, getTreshold(kTemperature, "heater") - getDelta(kTemperature), getTreshold(kTemperature, "heater") + getDelta(kTemperature), turnOn, turnOff, 0);
+}
+
+void checkCooling() {
+  checkTemperature(nCoolingRelePosition, getTreshold(kTemperature, "cooler") - getDelta(kTemperature), getTreshold(kTemperature, "cooler") + getDelta(kTemperature), turnOff, turnOn, 1);
+}
+//================================================================
+
+//=====================ПРОВЕРКА ВЛАЖНОСТИ =====================
+
 int setHumidity() {
   return constHumidity;
 }
 
+void checkHumidity(String releName, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
+  checkAction(kHumidity, releName, minValue, maxValue, minValueAction, maxValueAction, numCounter);
+}
+
+void checkHumidifier() {
+  checkHumidity(nHumidifierRelePosition, getTreshold(kHumidity, "main") - getDelta(kHumidity), getTreshold(kHumidity, "main") + getDelta(kHumidity), turnOn, turnOff, 0);
+}
+//==============================================================
+
+//=====================ПРОВЕРКА ПОЛИВА=====================
 int setSoil() {
   return constSoil;
+}
+
+void checkSoil() {
+  checkAction(kSoil, nSoilRelePosition, getTreshold(kSoil, "main") - getDelta(kSoil), getTreshold(kSoil, "main") + getDelta(kSoil), turnOn, turnOff, 0);
+}
+
+void checkWatering() {
+  if (reqTime()) {
+    if (reqSoil()) {
+      startWatering();
+    }
+  }
+}
+
+bool reqTime() {
+  return true;
+}
+
+bool reqSoil() {
+  return true;
+}
+
+void startWatering() {
+}
+
+//============================================================
+
+//=====================ПРОВЕРКА ОСВЕЩЕНИЯ =====================
+void checkLight() {
+  if (needToLight()) {
+    //заменить kPhoto на kLight
+    checkAction(kLight, nLightRelePosition, getTreshold(kLight, "main") - getDelta(kLight), getTreshold(kLight, "main") + getDelta(kLight), turnOn, turnOff, 0);
+  }
+}
+
+int setLight() {
+  return constLight;
+}
+
+bool needToLight() {
+  int hour = atoi(time.gettime("H"));
+  if (hour > startDayLight and hour < endDayLight) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+//==========================================================
+//фотосенсор вместо света
+int setPhoto() {
+  return constPhoto;
 }
 
 void sendRelePosition(String key, int addr, int pos) {
@@ -370,16 +407,8 @@ void sendSensorToPort(Sensor data) {
   Serial.println(output);
 }
 
-int getDelta(int sensorKey) {
-  if (sensorKey == kTemperature) {
-    return temperatureDelta;
-  } else if (sensorKey == kHumidity) {
-    return humidityDelta;
-  } else if (sensorKey == kSoil) {
-    return soilDelta;
-  }
-}
 
+// ПОЛУЧЕНИЕ ПОРОГОВОГО ЗНАЧЕНИЯ, ДЕЛЬТЫ И КОЛИЧЕСТВА ПОВТОРОВ ЗНАЧЕНИЯ ПОСЛЕ ПЕРЕХОДА ГРАНИЦЫ
 int getTreshold(int sensorKey, String purpose) {
   if (sensorKey == kTemperature) {
     return setTemperature(purpose);
@@ -387,16 +416,39 @@ int getTreshold(int sensorKey, String purpose) {
     return setHumidity();
   } else if (sensorKey == kSoil) {
     return setSoil();
+  } else if (sensorKey == kLight) {
+    return setLight();
+  } else if (sensorKey == kPhoto) {
+    return setPhoto();
+  }
+}
+
+int getDelta(int sensorKey) {
+  if (sensorKey == kTemperature) {
+    return temperatureDelta;
+  } else if (sensorKey == kHumidity) {
+    return humidityDelta;
+  } else if (sensorKey == kSoil) {
+    return soilDelta;
+  } else if (sensorKey == kLight) {
+    return lightDelta;
+  } else if (sensorKey == kPhoto) {
+    return photoDelta;
   }
 }
 
 int getNumRepetitions(int sensor) {
   if (sensor == kTemperature) {
-    return numRepetitionTemp;
+    return numRepetitionTemperature;
   } else if (sensor == kHumidity) {
-    return numRepetitionTemp;
+    return numRepetitionHumidity;
   } else if (sensor == kSoil) {
     return numRepetitionSoil;
+  } else if (sensor == kLight) {
+    return numRepetitionLight;
+  } else if (sensor == kPhoto) {
+    return numRepetitionPhoto;
   }
 }
+//======================================================================
 

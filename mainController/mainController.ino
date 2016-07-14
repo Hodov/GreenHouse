@@ -38,7 +38,7 @@ byte addresses[][6] = {"mainC"};
 
 //ОСВЕЩЕНИЕ
 #define numRepetitionLight 5
-#define lightningCheckPeriod 10000
+#define lightningCheckPeriod 60000
 #define startDayLight 8
 #define endDayLight 22
 #define constLight 600
@@ -107,17 +107,17 @@ class Checker
 #define nLight "light"
 #define nPhoto "photo"
 
-#define kTempSwitchPos 6
+#define kHeaterRelePosition 6
 #define nHeaterRelePosition "HeaterRelePosition"
-#define kTempSwitchPos 7
+#define kHumidifierRelePosition 7
 #define nHumidifierRelePosition "HumidifierRelePosition"
-#define kWateringSwitchPos 8
+#define kWaterinRelePosition 8
 #define nWaterinRelePosition "WateringRelePosition"
-#define kCoolingSwitchPos 9
+#define kCoolingRelePosition 9
 #define nCoolingRelePosition "CoolingRelePosition"
-#define kSoilSwitchPos 9
+#define kSoilRelePosition 9
 #define nSoilRelePosition "SoilRelePosition"
-#define kLightSwitchPos 10
+#define kLightRelePosition 10
 #define nLightRelePosition "LightRelePosition"
 
 //массив класса сенсоров, где будем хранить полученные значения
@@ -186,7 +186,7 @@ void loop()
   if (cWatering.needToCheck(wateringCheckPeriod)) {
     //checkWatering();
   }
-  
+
   if (cLighting.needToCheck(lightningCheckPeriod)) {
     checkLight();
   }
@@ -235,23 +235,25 @@ void checkSensorValue(int i, int minValue, int maxValue, int numCounter) {
 }
 
 //ОТПРАВЛЯЕМ КОМАНДУ ЭКШН КОНТРОЛЛЕРУ, ЕСЛИ ЗНАЧЕНИЕ ПЕРЕШЛО ПОРОГОВОЕ ЗНАЧЕНИЕ
-int sendAction(int i, String releName, int minValueAction, int maxValueAction, int numCounter, int repetitions) {
+int sendAction(int i, int releNum, int minValueAction, int maxValueAction, int numCounter, int repetitions) {
   if (sensorValues[i].highValueCounter[numCounter] > repetitions) {
-    sendRelePosition(releName, sensorValues[i].controllerNumber, maxValueAction);
+    //sendRelePosition(releName, sensorValues[i].controllerNumber, maxValueAction);
+    sendRelePos(getReleMsg(releNum, sensorValues[i], maxValueAction));
   } else if (sensorValues[i].lowValueCounter[numCounter] > repetitions) {
-    sendRelePosition(releName, sensorValues[i].controllerNumber, minValueAction);
+    //sendRelePosition(releName, sensorValues[i].controllerNumber, minValueAction);
+    sendRelePos(getReleMsg(releNum, sensorValues[i], minValueAction));
   } else {
   }
 }
 
 //ПРОВЕРЯЕМ ДЛЯ СЕНСОРА ЗНАЧЕНИЕ И ВЫПОЛНЯЕМ ЭКШН, ЕСЛИ НУЖНО
-void checkAction(int sensorType, String releName, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
+void checkAction(int sensorType, int releNum, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
   int i = 0;
   while (sensorValues[i].controllerNumber != 0) {
     if (sensorValues[i].key == sensorType) {
       checkSensorValue(i, minValue, maxValue, numCounter);
       if ((sensorType == kTemperature) or (sensorType == kHumidity) or (sensorType == kLight) or (sensorType == kPhoto)) {
-        sendAction(i, releName, minValueAction, maxValueAction, numCounter, getNumRepetitions(sensorType));
+        sendAction(i, releNum, minValueAction, maxValueAction, numCounter, getNumRepetitions(sensorType));
       }
     }
     i++;
@@ -276,16 +278,16 @@ int setTemperature(String purpose) {
   }
 }
 
-void checkTemperature(String releName, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
-  checkAction(kTemperature, releName, minValue, maxValue, minValueAction, maxValueAction, numCounter);
+void checkTemperature(int releNum, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
+  checkAction(kTemperature, releNum, minValue, maxValue, minValueAction, maxValueAction, numCounter);
 }
 
 void checkHeater() {
-  checkTemperature(nHeaterRelePosition, getTreshold(kTemperature, "heater") - getDelta(kTemperature), getTreshold(kTemperature, "heater") + getDelta(kTemperature), turnOn, turnOff, 0);
+  checkTemperature(kHeaterRelePosition, getTreshold(kTemperature, "heater") - getDelta(kTemperature), getTreshold(kTemperature, "heater") + getDelta(kTemperature), turnOn, turnOff, 0);
 }
 
 void checkCooling() {
-  checkTemperature(nCoolingRelePosition, getTreshold(kTemperature, "cooler") - getDelta(kTemperature), getTreshold(kTemperature, "cooler") + getDelta(kTemperature), turnOff, turnOn, 1);
+  checkTemperature(kCoolingRelePosition, getTreshold(kTemperature, "cooler") - getDelta(kTemperature), getTreshold(kTemperature, "cooler") + getDelta(kTemperature), turnOff, turnOn, 1);
 }
 //================================================================
 
@@ -295,12 +297,12 @@ int setHumidity() {
   return constHumidity;
 }
 
-void checkHumidity(String releName, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
-  checkAction(kHumidity, releName, minValue, maxValue, minValueAction, maxValueAction, numCounter);
+void checkHumidity(int releNum, int minValue, int maxValue, int minValueAction, int maxValueAction, int numCounter) {
+  checkAction(kHumidity, releNum, minValue, maxValue, minValueAction, maxValueAction, numCounter);
 }
 
 void checkHumidifier() {
-  checkHumidity(nHumidifierRelePosition, getTreshold(kHumidity, "main") - getDelta(kHumidity), getTreshold(kHumidity, "main") + getDelta(kHumidity), turnOn, turnOff, 0);
+  checkHumidity(kHumidifierRelePosition, getTreshold(kHumidity, "main") - getDelta(kHumidity), getTreshold(kHumidity, "main") + getDelta(kHumidity), turnOn, turnOff, 0);
 }
 //==============================================================
 
@@ -310,7 +312,7 @@ int setSoil() {
 }
 
 void checkSoil() {
-  checkAction(kSoil, nSoilRelePosition, getTreshold(kSoil, "main") - getDelta(kSoil), getTreshold(kSoil, "main") + getDelta(kSoil), turnOn, turnOff, 0);
+  checkAction(kSoil, kSoilRelePosition, getTreshold(kSoil, "main") - getDelta(kSoil), getTreshold(kSoil, "main") + getDelta(kSoil), turnOn, turnOff, 0);
 }
 
 void checkWatering() {
@@ -338,7 +340,7 @@ void startWatering() {
 void checkLight() {
   if (needToLight()) {
     //заменить kPhoto на kLight
-    checkAction(kLight, nLightRelePosition, getTreshold(kLight, "main") - getDelta(kLight), getTreshold(kLight, "main") + getDelta(kLight), turnOn, turnOff, 0);
+    checkAction(kLight, kLightRelePosition, getTreshold(kLight, "main") - getDelta(kLight), getTreshold(kLight, "main") + getDelta(kLight), turnOn, turnOff, 0);
   }
 }
 
@@ -359,6 +361,23 @@ bool needToLight() {
 //фотосенсор вместо света
 int setPhoto() {
   return constPhoto;
+}
+
+Sensor getReleMsg(int rele, indicators val, int pos) {
+  Sensor tempSensor;
+  tempSensor.controllerNumber = val.controllerNumber;
+  tempSensor.key = rele;
+  tempSensor.value = pos;
+  return tempSensor;
+}
+
+
+void sendRelePos(Sensor sens) {
+  radio.openWritingPipe(sens.controllerNumber);
+  radio.stopListening();
+  radio.write(&sens, sizeof(sens));
+  radio.startListening();
+  sendSensorToPort(sens);
 }
 
 void sendRelePosition(String key, int addr, int pos) {
@@ -400,13 +419,22 @@ void sendSensorToPort(Sensor data) {
     keyStr = nLight;
   } else if (data.key == kPhoto) {
     keyStr = nPhoto;
-  } else {
-
+  } else if (data.key == kHeaterRelePosition) {
+    keyStr = nHeaterRelePosition;
+  } else if (data.key == kHumidifierRelePosition) {
+    keyStr = nHumidifierRelePosition;
+  } else if (data.key == kWaterinRelePosition) {
+    keyStr = nWaterinRelePosition;
+  } else if (data.key == kCoolingRelePosition) {
+    keyStr = nCoolingRelePosition;
+  } else if (data.key == kSoilRelePosition) {
+    keyStr = nSoilRelePosition;
+  } else if (data.key == kLightRelePosition) {
+    keyStr = nLightRelePosition;
   }
   String output = String(data.controllerNumber) + ";" + keyStr + ";" + String(data.value) + ";";
   Serial.println(output);
 }
-
 
 // ПОЛУЧЕНИЕ ПОРОГОВОГО ЗНАЧЕНИЯ, ДЕЛЬТЫ И КОЛИЧЕСТВА ПОВТОРОВ ЗНАЧЕНИЯ ПОСЛЕ ПЕРЕХОДА ГРАНИЦЫ
 int getTreshold(int sensorKey, String purpose) {

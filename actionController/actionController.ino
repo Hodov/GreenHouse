@@ -1,28 +1,35 @@
-#include <Arduino.h>
+//адрес мейн контроллера и свой
+byte addresses[][6] = {"mainC", "10000"};
+
+
+//НАГРЕВАТЕЛЬ
+#define heaterRele 10
+//ОХЛАДИТЕЛЬ
+#define coolingRele 11
+//УВЛАЖНИТЕЛЬ
+#define humidifierRele 12
+//ОСВЕТИТЕЛЬ
+#define lightningRele 13
 
 class Checker
 {
-  // время предыдущей проверки
-  unsigned long prevMillis = 0;
-  
-public:
-Checker()
-{
-  prevMillis = 0;
-}
-
-//как частро проверять по времени
-boolean needToCheck(long period) {
-  
-  unsigned long currentMillis = millis();
-  if ((currentMillis - prevMillis >= period)  || (currentMillis < prevMillis)) {
-    prevMillis = currentMillis;
-    return true;
-  } else {
-    return false;
-  }
-}
-  
+    // время предыдущей проверки
+    unsigned long prevMillis = 0;
+  public:
+    Checker()
+    {
+      prevMillis = 0;
+    }
+    //как частро проверять по времени
+    boolean needToCheck(long period) {
+      unsigned long currentMillis = millis();
+      if ((currentMillis - prevMillis >= period)  || (currentMillis < prevMillis)) {
+        prevMillis = currentMillis;
+        return true;
+      } else {
+        return false;
+      }
+    }
 };
 
 #include <SPI.h>
@@ -38,137 +45,99 @@ boolean needToCheck(long period) {
 //описание названия и расположения в массиве для хранения данных с датчиков
 #define turnOn 1
 #define turnOff 0
-#define releTemperature 12
-#define nTempSwitchPos "TempSwitchPos"
-#define timePeriod 300000
+#define kHeaterRelePosition 6
+#define nHeaterRelePosition "HeaterRelePosition"
+#define kHumidifierRelePosition 7
+#define nHumidifierRelePosition "HumidifierRelePosition"
+#define kWaterinRelePosition 8
+#define nWaterinRelePosition "WateringRelePosition"
+#define kCoolingRelePosition 9
+#define nCoolingRelePosition "CoolingRelePosition"
+#define kSoilRelePosition 9
+#define nSoilRelePosition "SoilRelePosition"
+#define kLightRelePosition 10
+#define nLightRelePosition "LightRelePosition"
 
-//адреса модемов (пока модем получатель везде одинаковый)
-const byte mainControllerAddr[6] = "00001";
-const byte tempretureSwitcherAddr[6] = "00001";
+struct Sensor {
+  int controllerNumber = 0;
+  int key;
+  int value;
+};
 
 //модем
 RF24 radio(7, 8);
 
-//реле
-int rele = 12;
-
+Sensor input;
 //=========================SETUP============================
 void setup()
 {
   delay(300);
-  Serial.begin(9600); 
-  
-  // первый модем работает на отправку
-  //radio1.begin();
-  //radio1.setRetries(15, 15);
-  //radio1.openWritingPipe(mainControllerAddr);
-  //radio1.stopListening();
+  Serial.begin(9600);
 
   // модем работает на прием
   radio.begin();
-  radio.openReadingPipe(0, tempretureSwitcherAddr);
+  radio.openReadingPipe(0, addresses[1]);
   radio.startListening();
 
   //перечисление реле
-  pinMode(releTemperature, OUTPUT);
-  
+  pinMode(heaterRele, OUTPUT);
+  pinMode(coolingRele, OUTPUT);
+  pinMode(humidifierRele, OUTPUT);
+  pinMode(lightningRele, OUTPUT);
+
 }
 //==========================================================
 //=========================LOOP=============================
 void loop()
 {
-  
+
   if (radio.available())
   {
-    char text2[32] = {0};
-    radio2.read(&text2, sizeof(text2));  
-    parseData(text2);
+    radio.read(&input, sizeof(input));
+    sendSensorToPort(input);
+    makeAction(input);
   }
 
-  delay(1000);
-  
+  delay(100);
+
 }
 //==========================================================
 
-char sendData(String key, int par, RF24 radio, const byte *addr) {
-   radio.openWritingPipe(addr);
-   radio.stopListening();
-   char buffer[32] = {0};
-   String s = key + ";" + String(par) + ";";
-   s.toCharArray(buffer,50);
-   radio.write(&buffer, sizeof(buffer));
-}
-
-void parseData(char input[]) {
-  String str; 
-  str = input; //запишем, что пришло с модема
-  int a = 0;  //положение последней ;
-  String key; //название ключа
-  int value;  //значение ключа
-
-  //пробегаем всю строку
-  for(int i = 0; i < str.length(); i++) { 
-    //если нашли точку с запятой, записываем ключ
-    if (str[i] == ';') {      
-        key = str.substring(a,i);     
-      a=i+1;
-        i++;
-      //ищем следующую точку с запятой и записываем значение
-      while (str[i] != ';') {
-        i++;
-      }
-      value = str.substring(a,i).toInt();     
-      a=i+1; 
-    }     
-  }
-  turnOnOffSwitcher(key, value);
-}
-
-//эту функцию будет отправлять контроллер реле после включения или отключения реле
-void sendSwitchPos(String key, int value) {
-  sendingRadio;
-  char buffer[32] = {0};
-  String s = key + ";" + String(value) + ";";
-  sendToPortInt(key, value);
-  s.toCharArray(buffer,50);
-  radio.write(&buffer, sizeof(buffer));
-  listenRadio;
-}
-
 // после получения команды необходимо включить/выключить реле
-void turnOnOffSwitcher(String key, int value) {
-  if (value == turnOn) {
-    if (key == nTempSwitchPos) {
-      digitalWrite(releTemperature, HIGH);
-      sendSwitchPos(key,value);
-    }
-  } else if (value == turnOff) {
-    if (key == nTempSwitchPos) {
-      digitalWrite(releTemperature, LOW);       
-      sendSwitchPos(key,value);
-    } 
+void makeAction(Sensor sens) {
+  int releNum = 0;
+  if (sens.key == kHeaterRelePosition) {
+    releNum = heaterRele;
+  } else if (sens.key == kHumidifierRelePosition) {
+    releNum = humidifierRele;
+  } else if (sens.key == kCoolingRelePosition) {
+    releNum = coolingRele;
+  } else if (sens.key == kLightRelePosition) {
+    releNum = lightningRele;
+  }
+  if (sens.value == turnOn) {
+    digitalWrite(releNum, HIGH);
+  } else if (sens.value == turnOff) {
+    digitalWrite(releNum, LOW);
   }
 }
 
-void listenRadio() {
-  radio.begin();
-  radio.openReadingPipe(0, tempretureSwitcherAddr);
-  radio.startListening();
-}
-
-void sendingRadio() {
-  radio1.setRetries(15, 15);
-  radio1.openWritingPipe(mainControllerAddr);
-  radio1.stopListening();
-}
-
-void sendToPortInt(String key, int value) {
-  String s = key+";"+String(value)+";";
-  Serial.println(s);
-}
-
-void sendToPortStr(String key, String value) {
-  String s = key+";"+value+";";
-  Serial.println(s);
+void sendSensorToPort(Sensor data) {
+  String keyStr;
+  if (data.key == kHeaterRelePosition) {
+    keyStr = nHeaterRelePosition;
+  } else if (data.key == kHumidifierRelePosition) {
+    keyStr = nHumidifierRelePosition;
+  } else if (data.key == kWaterinRelePosition) {
+    keyStr = nWaterinRelePosition;
+  } else if (data.key == kCoolingRelePosition) {
+    keyStr = nCoolingRelePosition;
+  } else if (data.key == kSoilRelePosition) {
+    keyStr = nSoilRelePosition;
+  } else if (data.key == kLightRelePosition) {
+    keyStr = nLightRelePosition;
+  }
+  String output = String(data.controllerNumber) + ";" + keyStr + ";" + String(data.value) + ";";
+  Serial.println(output);
 }
 

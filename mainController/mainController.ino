@@ -237,10 +237,8 @@ void checkSensorValue(int i, int minValue, int maxValue, int numCounter) {
 //ОТПРАВЛЯЕМ КОМАНДУ ЭКШН КОНТРОЛЛЕРУ, ЕСЛИ ЗНАЧЕНИЕ ПЕРЕШЛО ПОРОГОВОЕ ЗНАЧЕНИЕ
 int sendAction(int i, int releNum, int minValueAction, int maxValueAction, int numCounter, int repetitions) {
   if (sensorValues[i].highValueCounter[numCounter] > repetitions) {
-    //sendRelePosition(releName, sensorValues[i].controllerNumber, maxValueAction);
     sendRelePos(getReleMsg(releNum, sensorValues[i], maxValueAction));
   } else if (sensorValues[i].lowValueCounter[numCounter] > repetitions) {
-    //sendRelePosition(releName, sensorValues[i].controllerNumber, minValueAction);
     sendRelePos(getReleMsg(releNum, sensorValues[i], minValueAction));
   } else {
   }
@@ -339,7 +337,6 @@ void startWatering() {
 //=====================ПРОВЕРКА ОСВЕЩЕНИЯ =====================
 void checkLight() {
   if (needToLight()) {
-    //заменить kPhoto на kLight
     checkAction(kLight, kLightRelePosition, getTreshold(kLight, "main") - getDelta(kLight), getTreshold(kLight, "main") + getDelta(kLight), turnOn, turnOff, 0);
   }
 }
@@ -378,18 +375,6 @@ void sendRelePos(Sensor sens) {
   radio.write(&sens, sizeof(sens));
   radio.startListening();
   sendSensorToPort(sens);
-}
-
-void sendRelePosition(String key, int addr, int pos) {
-  //здесь нужно перевести инт в байты, чтобы передать адрес отправления !!!!!!!!!!!!!!!!!!!!!!!!
-  char buffer[32] = {0};
-  String s = key + ";" + String(pos) + ";";
-  s.toCharArray(buffer, 50);
-  radio.openWritingPipe(addr);
-  radio.stopListening();
-  radio.write(&buffer, sizeof(buffer));
-  radio.startListening();
-  sendToPortInt(addr, key, pos);
 }
 
 void sendToPortInt(int addr, String key, int value) {

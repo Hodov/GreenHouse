@@ -1,6 +1,6 @@
 //адрес мейн контроллера и свой
-byte addresses[][6] = {"mainC", "10000"};
-
+byte addresses[][6] = {"mainC"};
+int ownAddr = 10000;
 
 //НАГРЕВАТЕЛЬ
 #define heaterRele 10
@@ -76,7 +76,7 @@ void setup()
 
   // модем работает на прием
   radio.begin();
-  radio.openReadingPipe(0, addresses[1]);
+  radio.openReadingPipe(0, ownAddr);
   radio.startListening();
 
   //перечисление реле

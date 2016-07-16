@@ -6,13 +6,13 @@ byte addresses[][6] = {"1sens","mainC"};
                                             //разные датчики температуры и влажности не стоит использовать одновременно
                                             //какие датчики подключены
                                             // true - если подключен,  false - если выключен
-#define temperatureIsActive_DHT11 true 
-#define humidityIsActive_DHT11 true         // температура в составе датчик DHT11
-#define temperatureIsActive_DHT22 false     // температура в составе датчик DHT22
-#define humidityIsActive_DHT22 false        // влажность в составе датчик DHT22
-#define soilIsActive true                   // датчик влажности почвы
-#define lightIsActive false                 // датчик света
-#define photoIsActive true                  // фоторезистор
+#define temperatureIsActive_DHT11 false 
+#define humidityIsActive_DHT11 false         // температура в составе датчик DHT11
+#define temperatureIsActive_DHT22 true     // температура в составе датчик DHT22
+#define humidityIsActive_DHT22 true        // влажность в составе датчик DHT22
+#define soilIsActive false                   // датчик влажности почвы
+#define lightIsActive true                 // датчик света
+#define photoIsActive false                  // фоторезистор
 #define temperatureDelay 10000              //время опроса датчика температуры в мс
 #define humidityDelay 10000                 //время опроса датчика влажности в мс
 #define soilDelay 10000                     //время опроса датчика влажности в мс
@@ -83,7 +83,7 @@ int RelayIntensity  = 8;
 byte buff[2];
 
 //модем для отправки данных
-RF24 radio(7, 8);
+RF24 radio(9, 10);
 
 //датчик температуры
 dht11 dht_11; // датчик температуры
@@ -96,6 +96,7 @@ DHT dht_22(DHTPIN, DHTTYPE);
 
 //датчик влажности почвы
 int soilPin = A1;
+
 //фоторезистор
 const int pinPhoto = A0;
 

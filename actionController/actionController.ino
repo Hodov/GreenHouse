@@ -3,13 +3,13 @@ byte addresses[][6] = {"mainC"};
 int ownAddr = 10000;
 
 //НАГРЕВАТЕЛЬ
-#define heaterRele 10
+int heaterRele = 3;
 //ОХЛАДИТЕЛЬ
-#define coolingRele 11
+int coolingRele = 6;
 //УВЛАЖНИТЕЛЬ
-#define humidifierRele 12
+int humidifierRele = 4;
 //ОСВЕТИТЕЛЬ
-#define lightningRele 13
+int lightningRele = 5;
 
 class Checker
 {
@@ -71,7 +71,6 @@ Sensor input;
 //=========================SETUP============================
 void setup()
 {
-  delay(300);
   Serial.begin(9600);
 
   // модем работает на прием
@@ -84,6 +83,11 @@ void setup()
   pinMode(coolingRele, OUTPUT);
   pinMode(humidifierRele, OUTPUT);
   pinMode(lightningRele, OUTPUT);
+
+  digitalWrite(heaterRele, HIGH);
+  digitalWrite(coolingRele, HIGH);
+  digitalWrite(humidifierRele, HIGH);
+  digitalWrite(lightningRele, HIGH);
 
 }
 //==========================================================
@@ -116,9 +120,13 @@ void makeAction(Sensor sens) {
     releNum = lightningRele;
   }
   if (sens.value == turnOn) {
-    digitalWrite(releNum, HIGH);
-  } else if (sens.value == turnOff) {
+    Serial.print(releNum);
+    Serial.println(" LOW");
     digitalWrite(releNum, LOW);
+  } else if (sens.value == turnOff) {
+    Serial.print(releNum);
+    Serial.println(" HIGH");
+    digitalWrite(releNum, HIGH);
   }
 }
 

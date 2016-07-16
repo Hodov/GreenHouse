@@ -2,14 +2,14 @@
 byte addresses[][6] = {"mainC"};
 
 //какой модуль часов используется, выбрать один
-#define rtc_1302 true
-#define rtc_3231 false
+#define rtc_1302 false
+#define rtc_3231 true
 
 //количество места для сенсоров в массиве
 #define maxSensors 15
 
 //ТЕМПЕРАТУРА
-#define temperatureCheckPeriod 60000    //проверять значение температуры раз в минуту
+#define temperatureCheckPeriod 10000    //проверять значение температуры раз в минуту
 #define numRepetitionTemperature 5      //хитрый счетчик
 #define startDay 8
 #define endDay 22
@@ -24,13 +24,13 @@ byte addresses[][6] = {"mainC"};
 #define nightTemperatureCooling 20
 
 //ВЛАЖНОСТЬ
-#define humidityCheckPeriod 60000
+#define humidityCheckPeriod 10000
 #define numRepetitionHumidity 5
 #define constHumidity 75
 #define humidityDelta 5
 
 //ПОЧВА
-#define wateringCheckPeriod 60000
+#define wateringCheckPeriod 10000
 #define numRepetitionSoil 1
 #define constSoil 400
 #define soilDelta 100
@@ -38,11 +38,11 @@ byte addresses[][6] = {"mainC"};
 
 //ОСВЕЩЕНИЕ
 #define numRepetitionLight 5
-#define lightningCheckPeriod 60000
+#define lightningCheckPeriod 10000
 #define startDayLight 8
 #define endDayLight 22
-#define constLight 600
-#define lightDelta 50
+#define constLight 8000
+#define lightDelta 1000
 
 //ФОТОДАТЧИК, ПОЧТИ ТО ЖЕ, ЧТО И ОСВЕЩЕНИЕ
 
@@ -153,7 +153,7 @@ void setup()
 
   //не удалять, можно установить время
   //0 сек, 18 мин, 10 часов, 26 мая 16 года, 4 день недели
-  //time.settime(0,27,10,13,07,16,3);
+  //time.settime(0,40,19,16,07,16,6);
 
   //модем по умолчанию работает на прием
   radio.begin();
@@ -336,6 +336,8 @@ void startWatering() {
 
 //=====================ПРОВЕРКА ОСВЕЩЕНИЯ =====================
 void checkLight() {
+  Serial.print("NeedToLight   ");
+  Serial.println(needToLight());
   if (needToLight()) {
     checkAction(kLight, kLightRelePosition, getTreshold(kLight, "main") - getDelta(kLight), getTreshold(kLight, "main") + getDelta(kLight), turnOn, turnOff, 0);
   }
@@ -347,6 +349,8 @@ int setLight() {
 
 bool needToLight() {
   int hour = atoi(time.gettime("H"));
+  Serial.print("Hour   ");
+  Serial.println(hour);
   if (hour > startDayLight and hour < endDayLight) {
     return true;
   } else {
@@ -372,7 +376,11 @@ Sensor getReleMsg(int rele, indicators val, int pos) {
 void sendRelePos(Sensor sens) {
   radio.openWritingPipe(sens.controllerNumber);
   radio.stopListening();
-  radio.write(&sens, sizeof(sens));
+  if (!radio.write(&sens, sizeof(sens))) {
+    Serial.println("Fail");
+  } else {
+    Serial.println("Success");
+  }
   radio.startListening();
   sendSensorToPort(sens);
 }

@@ -6,10 +6,10 @@ byte addresses[][6] = {"1sens","mainC"};
                                             //разные датчики температуры и влажности не стоит использовать одновременно
                                             //какие датчики подключены
                                             // true - если подключен,  false - если выключен
-#define temperatureIsActive_DHT11 false 
-#define humidityIsActive_DHT11 false         // температура в составе датчик DHT11
-#define temperatureIsActive_DHT22 true     // температура в составе датчик DHT22
-#define humidityIsActive_DHT22 true        // влажность в составе датчик DHT22
+#define temperatureIsActive_DHT11 true 
+#define humidityIsActive_DHT11 true         // температура в составе датчик DHT11
+#define temperatureIsActive_DHT22 false     // температура в составе датчик DHT22
+#define humidityIsActive_DHT22 false        // влажность в составе датчик DHT22
 #define soilIsActive false                   // датчик влажности почвы
 #define lightIsActive true                 // датчик света
 #define photoIsActive false                  // фоторезистор
@@ -110,11 +110,92 @@ Checker cSoil;
 Checker cLight;
 Checker cPhoto;
 
+//=========================================================================
+//SLEEP MODE
+
+#include <avr/sleep.h>
+#include <avr/power.h>
+#define LED_PIN (4)
+volatile int f_timer = 0;
+
+//Description: Timer1 Overflow interrupt.
+ISR(TIMER1_OVF_vect)
+{
+  /* set the flag. */
+  if (f_timer == 0)
+  {
+    f_timer = 1;
+  }
+}
+
+//Description: Enters the arduino into sleep mode.
+void enterSleep(void)
+{
+  set_sleep_mode(SLEEP_MODE_IDLE);
+  sleep_enable();
+
+  /* Disable all of the unused peripherals. This will reduce power
+     consumption further and, more importantly, some of these
+     peripherals may generate interrupts that will wake our Arduino from
+     sleep!
+  */
+  power_adc_disable();
+  power_spi_disable();
+  power_timer0_disable();
+  power_timer2_disable();
+  power_twi_disable();
+  /* Now enter sleep mode. */
+  sleep_mode();
+  /* The program will continue from here after the timer timeout*/
+  sleep_disable(); /* First thing to do is disable sleep. */
+  /* Re-enable the peripherals. */
+  power_all_enable();
+}
+
+
 //=========================SETUP============================
 void setup()
 {
   delay(300);
   Serial.begin(9600);
+
+  //светодиод для проверки состояния ардуины
+  pinMode(LED_PIN, OUTPUT);
+
+  //=========================
+//SLEEP PARAMETERS
+   /*** Configure the timer.***/
+  /* Normal timer operation.*/
+  TCCR1A = 0x00;
+  /* Clear the timer counter register.
+     You can pre-load this register with a value in order to
+     reduce the timeout period, say if you wanted to wake up
+     ever 4.0 seconds exactly.
+  */
+  TCNT1 = 0x0000;
+  /* Configure the prescaler for 1:1024, giving us a
+     timeout of 4.09 seconds.
+  */
+  TCCR1B = 0x05;
+  /* Enable the timer overlow interrupt. */
+  TIMSK1 = 0x01; /*** Configure the timer.***/
+  /* Normal timer operation.*/
+  TCCR1A = 0x00;
+  /* Clear the timer counter register.
+     You can pre-load this register with a value in order to
+     reduce the timeout period, say if you wanted to wake up
+     ever 4.0 seconds exactly.
+  */
+  TCNT1 = 0x0000;
+  /* Configure the prescaler for 1:1024, giving us a
+     timeout of 4.09 seconds.
+  */
+  TCCR1B = 0x05;
+  /* Enable the timer overlow interrupt. */
+  TIMSK1 = 0x01;
+
+//===============================
+
 
   // инициализация датчика света
   lightMeter.begin();
@@ -134,71 +215,78 @@ void setup()
 //=========================LOOP=============================
 void loop()
 {
+  if (f_timer == 1)
+  {
+    f_timer = 0;
+
+    
   // если проверяем температуру
   if (temperatureIsActive_DHT11) {
     //если прошло достаточно времени, считываем данные с датчика температуры
-    if (cTemp.needToCheck(temperatureDelay)) {
+    //if (cTemp.needToCheck(temperatureDelay)) {
       
       sendSensor(makeSensor(controllerNumber, nTemperature, getTemperatureDHT11()));
-      delay(500);
-    }
+      delay(50);
+    //}
   }
 
   if (humidityIsActive_DHT11) {
     //если прошло достаточно времени, считываем данные с датчика температуры
-    if (cHum.needToCheck(humidityDelay)) {
+   // if (cHum.needToCheck(humidityDelay)) {
       //sendData(keyHumidity, getHumidityDHT11());
       sendSensor(makeSensor(controllerNumber, nHumidity, getHumidityDHT11()));
-      delay(500);
-    }
+      delay(50);
+   // }
   }
 
   // если проверяем температуру
   if (temperatureIsActive_DHT22) {
     //если прошло достаточно времени, считываем данные с датчика температуры
-    if (cTemp.needToCheck(temperatureDelay)) {
+    //if (cTemp.needToCheck(temperatureDelay)) {
       
       sendSensor(makeSensor(controllerNumber, nTemperature, getTemperatureDHT22()));
-      delay(500);
-    }
+      delay(50);
+    //}
   }
 
   if (humidityIsActive_DHT22) {
     //если прошло достаточно времени, считываем данные с датчика температуры
-    if (cHum.needToCheck(humidityDelay)) {
+   // if (cHum.needToCheck(humidityDelay)) {
       
       sendSensor(makeSensor(controllerNumber, nHumidity, getHumidityDHT22()));
-      delay(500);
-    }
+      delay(50);
+   // }
   }
 
   if (soilIsActive) {
     //если прошло достаточно времени, считываем данные с датчика температуры
-    if (cSoil.needToCheck(soilDelay)) {
+    //if (cSoil.needToCheck(soilDelay)) {
       
       sendSensor(makeSensor(controllerNumber, nSoil, getSoil()));
-      delay(500);
-    }
+      delay(50);
+    //}
   }
 
   if (lightIsActive) {
     //если прошло достаточно времени, считываем данные с датчика температуры
-    if (cLight.needToCheck(lightDelay)) {
+    //if (cLight.needToCheck(lightDelay)) {
       
       sendSensor(makeSensor(controllerNumber, nLight, getLight()));
-      delay(500);
-    }
+      delay(50);
+    //}
   }
 
   if (photoIsActive) {
     //если прошло достаточно времени, считываем данные с датчика температуры
-    if (cPhoto.needToCheck(photoDelay)) {
+    //if (cPhoto.needToCheck(photoDelay)) {
       sendSensor(makeSensor(controllerNumber, nPhoto, getPhoto()));
-      delay(500);
-    }
+      delay(50);
+    //}
   }
-
-  delay(1000);
+  //delay(100);
+  enterSleep();
+  //delay(1000);
+  }
 
 }
 //==========================================================

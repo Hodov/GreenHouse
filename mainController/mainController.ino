@@ -16,20 +16,24 @@ byte addresses[][6] = {"mainC"};
 #define temperatureDelta 2              //дельта от порогового значения
 
 //нагрев
+bool heaterOn = true;
 #define dayTemperature 22               //дневная температура
 #define nightTemperature 18             //ночная температура
 
 //охлаждение
+bool coolerOn = true;
 #define dayTemperatureCooling 24
 #define nightTemperatureCooling 20
 
 //ВЛАЖНОСТЬ
+bool humidifierOn = true;
 #define humidityCheckPeriod 10000
 #define numRepetitionHumidity 5
 #define constHumidity 75
 #define humidityDelta 5
 
 //ПОЧВА
+bool wateringOn - true;
 #define wateringCheckPeriod 10000
 #define numRepetitionSoil 1
 #define constSoil 400
@@ -37,6 +41,7 @@ byte addresses[][6] = {"mainC"};
 
 
 //ОСВЕЩЕНИЕ
+bool lightningOn = true;
 #define numRepetitionLight 5
 #define lightningCheckPeriod 10000
 #define startDayLight 8
@@ -165,6 +170,13 @@ void setup()
 //=========================LOOP=============================
 void loop()
 {
+  String inData;
+  
+  if (Serial.available() > 0) {
+    inData = Serial.readString();
+    checkIncomingCommand(inData);
+  }
+  
   if (radio.available())
   {
     radio.read(&inputSensor, sizeof(inputSensor));
@@ -173,7 +185,7 @@ void loop()
   }
 
   //  проверяем значение температуры из массива на пригодность каждые 1 мин
-  if (cTemp.needToCheck(temperatureCheckPeriod)) {
+  if (cTemp.needToCheck(temperatureCheckPeriod) and autoCheckOn()) {
     checkHeater();
     checkCooling();
   }
@@ -196,6 +208,46 @@ void loop()
 }
 //==========================================================
 
+//ПРОВЕРКА ВХОДЯЩИХ КОМАНД
+//========================
+void checkIncomingCommand(String incoming) {
+  Sensor incomingCommand = parseIncomingString(incoming);
+  sendRelePos(incomingCommand);
+  
+}
+
+Sensor parseIncomingString(String incoming) {
+  int i = 0;
+  int iFirst = i;
+  while (incoming[i] != ';') {
+    i++;
+  }
+  int controller = incoming.substring(iFirst,i).toInt();
+  i++;
+  iFirst = i;
+  while (incoming[i] != ';') {
+    i++;
+  }
+  int key = incoming.substring(iFirst,i).toInt();
+  i++;
+  iFirst = i;
+  while (incoming[i] != ';') {
+    i++;
+  }
+  int value = incoming.substring(iFirst,i).toInt();
+  return makeSensor(controller,key,value);
+  
+}
+
+Sensor makeSensor(int controller, int key, int value) {
+  Sensor tempSensor;
+  tempSensor.controllerNumber = controller;
+  tempSensor.key = key;
+  tempSensor.value = value;
+  return tempSensor;
+}
+
+//===========================================================
 
 // СОХРАНЯЕМ ДАННЫЕ В МАССИВ, КОТОРЫЕ ПРИШЛИ В МОДЕМ
 void saveDataFromSensor(Sensor data) {
@@ -336,8 +388,6 @@ void startWatering() {
 
 //=====================ПРОВЕРКА ОСВЕЩЕНИЯ =====================
 void checkLight() {
-  Serial.print("NeedToLight   ");
-  Serial.println(needToLight());
   if (needToLight()) {
     checkAction(kLight, kLightRelePosition, getTreshold(kLight, "main") - getDelta(kLight), getTreshold(kLight, "main") + getDelta(kLight), turnOn, turnOff, 0);
   }
@@ -349,8 +399,6 @@ int setLight() {
 
 bool needToLight() {
   int hour = atoi(time.gettime("H"));
-  Serial.print("Hour   ");
-  Serial.println(hour);
   if (hour > startDayLight and hour < endDayLight) {
     return true;
   } else {
@@ -384,7 +432,7 @@ void sendRelePos(Sensor sens) {
   radio.startListening();
   sendSensorToPort(sens);
 }
-
+/*
 void sendToPortInt(int addr, String key, int value) {
   String s = String(addr) + ";" + key + ";" + String(value) + ";";
   Serial.println(s);
@@ -394,6 +442,7 @@ void sendToPortStr(String key, String value) {
   String s = key + ";" + value + ";";
   Serial.println(s);
 }
+*/
 
 String getTime() {
   String s = String(time.gettime("H")) + ':' + String(time.gettime("i")) + ':' + String(time.gettime("s"));

@@ -9,7 +9,7 @@ byte addresses[][6] = {"mainC"};
 #define maxSensors 15
 
 //ТЕМПЕРАТУРА
-#define temperatureCheckPeriod 10000    //проверять значение температуры раз в минуту
+#define temperatureCheckPeriod 10000    //проверять значение температуры раз в ...
 #define numRepetitionTemperature 5      //хитрый счетчик
 #define startDay 8
 #define endDay 22
@@ -33,7 +33,7 @@ bool humidifierOn = true;
 #define humidityDelta 5
 
 //ПОЧВА
-bool wateringOn - true;
+bool wateringOn = true;
 #define wateringCheckPeriod 10000
 #define numRepetitionSoil 1
 #define constSoil 400
@@ -179,13 +179,14 @@ void loop()
   
   if (radio.available())
   {
+    Serial.println("Sens avail");
     radio.read(&inputSensor, sizeof(inputSensor));
     sendSensorToPort(inputSensor);
     saveDataFromSensor(inputSensor);
   }
 
   //  проверяем значение температуры из массива на пригодность каждые 1 мин
-  if (cTemp.needToCheck(temperatureCheckPeriod) and autoCheckOn()) {
+  if (cTemp.needToCheck(temperatureCheckPeriod)) {
     checkHeater();
     checkCooling();
   }
@@ -235,11 +236,11 @@ Sensor parseIncomingString(String incoming) {
     i++;
   }
   int value = incoming.substring(iFirst,i).toInt();
-  return makeSensor(controller,key,value);
+  return makeVarSensor(controller,key,value);
   
 }
 
-Sensor makeSensor(int controller, int key, int value) {
+Sensor makeVarSensor(int controller, int key, int value) {
   Sensor tempSensor;
   tempSensor.controllerNumber = controller;
   tempSensor.key = key;

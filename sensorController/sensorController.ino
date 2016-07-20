@@ -10,9 +10,9 @@ byte addresses[][6] = {"1sens","mainC"};
 #define humidityIsActive_DHT11 true         // температура в составе датчик DHT11
 #define temperatureIsActive_DHT22 false     // температура в составе датчик DHT22
 #define humidityIsActive_DHT22 false        // влажность в составе датчик DHT22
-#define soilIsActive false                   // датчик влажности почвы
-#define lightIsActive true                 // датчик света
-#define photoIsActive false                  // фоторезистор
+#define soilIsActive true                   // датчик влажности почвы
+#define lightIsActive false                 // датчик света
+#define photoIsActive true                  // фоторезистор
 #define temperatureDelay 10000              //время опроса датчика температуры в мс
 #define humidityDelay 10000                 //время опроса датчика влажности в мс
 #define soilDelay 10000                     //время опроса датчика влажности в мс
@@ -245,7 +245,7 @@ void loop()
     //if (cTemp.needToCheck(temperatureDelay)) {
       
       sendSensor(makeSensor(controllerNumber, nTemperature, getTemperatureDHT22()));
-      delay(50);
+      delay(100);
     //}
   }
 
@@ -254,7 +254,7 @@ void loop()
    // if (cHum.needToCheck(humidityDelay)) {
       
       sendSensor(makeSensor(controllerNumber, nHumidity, getHumidityDHT22()));
-      delay(50);
+      delay(100);
    // }
   }
 
@@ -263,7 +263,7 @@ void loop()
     //if (cSoil.needToCheck(soilDelay)) {
       
       sendSensor(makeSensor(controllerNumber, nSoil, getSoil()));
-      delay(50);
+      delay(100);
     //}
   }
 
@@ -272,7 +272,7 @@ void loop()
     //if (cLight.needToCheck(lightDelay)) {
       
       sendSensor(makeSensor(controllerNumber, nLight, getLight()));
-      delay(50);
+      delay(100);
     //}
   }
 
@@ -280,12 +280,12 @@ void loop()
     //если прошло достаточно времени, считываем данные с датчика температуры
     //if (cPhoto.needToCheck(photoDelay)) {
       sendSensor(makeSensor(controllerNumber, nPhoto, getPhoto()));
-      delay(50);
+      delay(100);
     //}
   }
-  //delay(100);
-  enterSleep();
-  //delay(1000);
+  //delay(500);
+  //enterSleep();
+  delay(1000);
   }
 
 }
@@ -336,6 +336,8 @@ void sendSensor(Sensor outputSensor) {
   radio.stopListening();
   if (!radio.write(&outputSensor, sizeof(outputSensor))) {
     Serial.println(F("failed"));
+  } else {
+    Serial.println("Send");
   }
   radio.startListening();
   sendSensorToPort(outputSensor);

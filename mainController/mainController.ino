@@ -6,7 +6,7 @@ byte addresses[][6] = {"mainC"};
 #define rtc_3231 true
 
 //количество места для сенсоров в массиве
-#define maxSensors 15
+#define maxSensors 15 
 
 //ТЕМПЕРАТУРА
 #define temperatureCheckPeriod 10000    //проверять значение температуры раз в ...
@@ -179,7 +179,6 @@ void loop()
   
   if (radio.available())
   {
-    Serial.println("Sens avail");
     radio.read(&inputSensor, sizeof(inputSensor));
     sendSensorToPort(inputSensor);
     saveDataFromSensor(inputSensor);
@@ -311,6 +310,16 @@ void checkAction(int sensorType, int releNum, int minValue, int maxValue, int mi
   }
 }
 
+void turnOffAll(int sensorType, int releNum) {
+  int i = 0;
+  while (sensorValues[i].controllerNumber != 0) {    
+    if (sensorValues[i].key == sensorType) {
+      sendRelePos(getReleMsg(releNum, sensorValues[i], turnOff));
+    }
+    i++;
+  }
+}
+
 //=====================ПРОВЕРКА ТЕМПЕРАТУРЫ =====================
 int setTemperature(String purpose) {
   int hour = atoi(time.gettime("H"));
@@ -391,8 +400,13 @@ void startWatering() {
 void checkLight() {
   if (needToLight()) {
     checkAction(kLight, kLightRelePosition, getTreshold(kLight, "main") - getDelta(kLight), getTreshold(kLight, "main") + getDelta(kLight), turnOn, turnOff, 0);
+  } else {
+      //если ночь, то выключаем свет, для этого нужно чекЭкшн с другими параметрами
+      turnOffAll(kLight, kLightRelePosition);
   }
 }
+
+
 
 int setLight() {
   return constLight;
@@ -427,23 +441,11 @@ void sendRelePos(Sensor sens) {
   radio.stopListening();
   if (!radio.write(&sens, sizeof(sens))) {
     Serial.println("Fail");
-  } else {
-    Serial.println("Success");
   }
   radio.startListening();
   sendSensorToPort(sens);
 }
-/*
-void sendToPortInt(int addr, String key, int value) {
-  String s = String(addr) + ";" + key + ";" + String(value) + ";";
-  Serial.println(s);
-}
 
-void sendToPortStr(String key, String value) {
-  String s = key + ";" + value + ";";
-  Serial.println(s);
-}
-*/
 
 String getTime() {
   String s = String(time.gettime("H")) + ':' + String(time.gettime("i")) + ':' + String(time.gettime("s"));

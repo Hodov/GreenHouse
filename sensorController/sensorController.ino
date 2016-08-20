@@ -1,7 +1,5 @@
-int controllerNumber = 10000;                    //номер сенсонр контроллера, которое будет добавляться в отправляемые данные
-
-//первый адрес свой, нужен уникальный для каждого сенсор контроллера, второй адрес главного контроллера
-byte addresses[][6] = {"1sens","mainC"};
+int controllerID = 10000;                    //номер сенсонр контроллера, которое будет добавляться в отправляемые данные
+int64_t addr = 0xF0F0F0F0E1LL;
 
                                             //разные датчики температуры и влажности не стоит использовать одновременно
                                             //какие датчики подключены
@@ -68,7 +66,7 @@ class Checker
 #define nPhoto 5
 
 struct Sensor {
-  int controllerNumber;
+  int controllerID;
   int key;
   int value; 
 };
@@ -202,9 +200,10 @@ void setup()
 
   // модем работает на отправку
   radio.begin();
-  //radio.setRetries(15, 15);
-  radio.openReadingPipe(1, addresses[0]);
-  radio.openWritingPipe(addresses[1]);
+  radio.setPALevel(RF24_PA_MAX);
+  radio.setChannel(0x76);
+  radio.openWritingPipe(addr);
+  radio.enableDynamicPayloads();
   radio.startListening();
 
   //инициализация фоторезистора
@@ -225,7 +224,7 @@ void loop()
     //если прошло достаточно времени, считываем данные с датчика температуры
     //if (cTemp.needToCheck(temperatureDelay)) {
       
-      sendSensor(makeSensor(controllerNumber, nTemperature, getTemperatureDHT11()));
+      sendSensor(makeSensor(controllerID, nTemperature, getTemperatureDHT11()));
       delay(50);
     //}
   }
@@ -234,7 +233,7 @@ void loop()
     //если прошло достаточно времени, считываем данные с датчика температуры
    // if (cHum.needToCheck(humidityDelay)) {
       //sendData(keyHumidity, getHumidityDHT11());
-      sendSensor(makeSensor(controllerNumber, nHumidity, getHumidityDHT11()));
+      sendSensor(makeSensor(controllerID, nHumidity, getHumidityDHT11()));
       delay(50);
    // }
   }
@@ -244,7 +243,7 @@ void loop()
     //если прошло достаточно времени, считываем данные с датчика температуры
     //if (cTemp.needToCheck(temperatureDelay)) {
       
-      sendSensor(makeSensor(controllerNumber, nTemperature, getTemperatureDHT22()));
+      sendSensor(makeSensor(controllerID, nTemperature, getTemperatureDHT22()));
       delay(50);
     //}
   }
@@ -253,7 +252,7 @@ void loop()
     //если прошло достаточно времени, считываем данные с датчика температуры
    // if (cHum.needToCheck(humidityDelay)) {
       
-      sendSensor(makeSensor(controllerNumber, nHumidity, getHumidityDHT22()));
+      sendSensor(makeSensor(controllerID, nHumidity, getHumidityDHT22()));
       delay(50);
    // }
   }
@@ -262,7 +261,7 @@ void loop()
     //если прошло достаточно времени, считываем данные с датчика температуры
     //if (cSoil.needToCheck(soilDelay)) {
       
-      sendSensor(makeSensor(controllerNumber, nSoil, getSoil()));
+      sendSensor(makeSensor(controllerID, nSoil, getSoil()));
       delay(50);
     //}
   }
@@ -271,7 +270,7 @@ void loop()
     //если прошло достаточно времени, считываем данные с датчика температуры
     //if (cLight.needToCheck(lightDelay)) {
       
-      sendSensor(makeSensor(controllerNumber, nLight, getLight()));
+      sendSensor(makeSensor(controllerID, nLight, getLight()));
       delay(50);
     //}
   }
@@ -279,7 +278,7 @@ void loop()
   if (photoIsActive) {
     //если прошло достаточно времени, считываем данные с датчика температуры
     //if (cPhoto.needToCheck(photoDelay)) {
-      sendSensor(makeSensor(controllerNumber, nPhoto, getPhoto()));
+      sendSensor(makeSensor(controllerID, nPhoto, getPhoto()));
       delay(50);
     //}
   }
@@ -344,7 +343,7 @@ void sendSensor(Sensor outputSensor) {
 
 Sensor makeSensor(int contrNumber, int key, int value) {
   Sensor newData;
-  newData.controllerNumber = contrNumber;
+  newData.controllerID = contrNumber;
   newData.key = key;
   newData.value = value;
   
@@ -352,7 +351,7 @@ Sensor makeSensor(int contrNumber, int key, int value) {
 }
 
 void sendSensorToPort(Sensor data) {  
-  String s = String(data.controllerNumber) + ";" + String(data.key) + ";" + String(data.value);
+  String s = String(data.controllerID) + ";" + String(data.key) + ";" + String(data.value);
   Serial.println(s);
 }
 

@@ -1,6 +1,4 @@
-//адрес мейн контроллера и свой
-byte addresses[][6] = {"mainC"};
-int ownAddr = 10000;
+int64_t ownAddr = 0xE8E8F0F0E1LL;
 
 //НАГРЕВАТЕЛЬ
 int heaterRele = 3;
@@ -76,6 +74,9 @@ void setup()
   // модем работает на прием
   radio.begin();
   radio.openReadingPipe(0, ownAddr);
+  radio.setPALevel(RF24_PA_MAX);
+  radio.setChannel(0x76);
+  radio.enableDynamicPayloads();
   radio.startListening();
 
   //перечисление реле
@@ -84,10 +85,10 @@ void setup()
   pinMode(humidifierRele, OUTPUT);
   pinMode(lightningRele, OUTPUT);
 
-  digitalWrite(heaterRele, HIGH);
-  digitalWrite(coolingRele, HIGH);
-  digitalWrite(humidifierRele, HIGH);
-  digitalWrite(lightningRele, HIGH);
+  digitalWrite(heaterRele, LOW);
+  digitalWrite(coolingRele, LOW);
+  digitalWrite(humidifierRele, LOW);
+  digitalWrite(lightningRele, LOW);
 
 }
 //==========================================================
@@ -121,12 +122,12 @@ void makeAction(Sensor sens) {
   }
   if (sens.value == turnOn) {
     Serial.print(releNum);
-    Serial.println(" LOW");
-    digitalWrite(releNum, LOW);
-  } else if (sens.value == turnOff) {
-    Serial.print(releNum);
     Serial.println(" HIGH");
     digitalWrite(releNum, HIGH);
+  } else if (sens.value == turnOff) {
+    Serial.print(releNum);
+    Serial.println(" LOW");
+    digitalWrite(releNum, LOW);
   }
 }
 

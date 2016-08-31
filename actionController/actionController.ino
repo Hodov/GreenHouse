@@ -1,5 +1,8 @@
 int64_t ownAddr = 0xE8E8F0F0E1LL;
 
+int turnOnRelay = HIGH;
+int turnOffRelay = LOW;
+
 //НАГРЕВАТЕЛЬ
 int heaterRele = 3;
 //ОХЛАДИТЕЛЬ
@@ -78,6 +81,7 @@ void setup()
   radio.setChannel(0x76);
   radio.enableDynamicPayloads();
   radio.startListening();
+  radio.powerUp();
 
   //перечисление реле
   pinMode(heaterRele, OUTPUT);
@@ -85,10 +89,10 @@ void setup()
   pinMode(humidifierRele, OUTPUT);
   pinMode(lightningRele, OUTPUT);
 
-  digitalWrite(heaterRele, LOW);
-  digitalWrite(coolingRele, LOW);
-  digitalWrite(humidifierRele, LOW);
-  digitalWrite(lightningRele, LOW);
+  digitalWrite(heaterRele, turnOnRelay);
+  digitalWrite(coolingRele, turnOnRelay);
+  digitalWrite(humidifierRele, turnOnRelay);
+  digitalWrite(lightningRele, turnOnRelay);
 
 }
 //==========================================================
@@ -122,12 +126,12 @@ void makeAction(Sensor sens) {
   }
   if (sens.value == turnOn) {
     Serial.print(releNum);
-    Serial.println(" HIGH");
-    digitalWrite(releNum, HIGH);
+    Serial.println(" ON");
+    digitalWrite(releNum, turnOnRelay);
   } else if (sens.value == turnOff) {
     Serial.print(releNum);
-    Serial.println(" LOW");
-    digitalWrite(releNum, LOW);
+    Serial.println(" OFF");
+    digitalWrite(releNum, turnOffRelay);
   }
 }
 

@@ -6,10 +6,10 @@ int64_t addr = 0xF0F0F0F0E1LL;
                                             // true - если подключен,  false - если выключен
 #define temperatureIsActive_DHT11 false 
 #define humidityIsActive_DHT11 false         // температура в составе датчик DHT11
-#define temperatureIsActive_DHT22 true     // температура в составе датчик DHT22
-#define humidityIsActive_DHT22 true        // влажность в составе датчик DHT22
-#define soilIsActive false                   // датчик влажности почвы
-#define lightIsActive true                 // датчик света
+#define temperatureIsActive_DHT22 false     // температура в составе датчик DHT22
+#define humidityIsActive_DHT22 false        // влажность в составе датчик DHT22
+#define soilIsActive true                   // датчик влажности почвы
+#define lightIsActive false                 // датчик света
 #define photoIsActive false                  // фоторезистор
 #define temperatureDelay 10000              //время опроса датчика температуры в мс
 #define humidityDelay 10000                 //время опроса датчика влажности в мс

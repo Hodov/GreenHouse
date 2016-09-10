@@ -11,6 +11,10 @@ int coolingRele = 6;
 int humidifierRele = 4;
 //ОСВЕТИТЕЛЬ
 int lightningRele = 5;
+//СЕНСОР
+int soilRele = 2;
+//ОСВЕТИТЕЛЬ
+int wateringRele = 7;
 
 class Checker
 {
@@ -54,7 +58,7 @@ class Checker
 #define nWaterinRelePosition "WateringRelePosition"
 #define kCoolingRelePosition 9
 #define nCoolingRelePosition "CoolingRelePosition"
-#define kSoilRelePosition 9
+#define kSoilRelePosition 11
 #define nSoilRelePosition "SoilRelePosition"
 #define kLightRelePosition 10
 #define nLightRelePosition "LightRelePosition"
@@ -66,7 +70,7 @@ struct Sensor {
 };
 
 //модем
-RF24 radio(7, 8);
+RF24 radio(9, 10);
 
 Sensor input;
 //=========================SETUP============================
@@ -76,7 +80,7 @@ void setup()
 
   // модем работает на прием
   radio.begin();
-  radio.openReadingPipe(0, ownAddr);
+  radio.openReadingPipe(1, ownAddr);
   radio.setPALevel(RF24_PA_MAX);
   radio.setChannel(0x76);
   radio.enableDynamicPayloads();
@@ -88,12 +92,15 @@ void setup()
   pinMode(coolingRele, OUTPUT);
   pinMode(humidifierRele, OUTPUT);
   pinMode(lightningRele, OUTPUT);
+  pinMode(soilRele, OUTPUT);
+  pinMode(wateringRele, OUTPUT);
 
-  digitalWrite(heaterRele, turnOnRelay);
-  digitalWrite(coolingRele, turnOnRelay);
-  digitalWrite(humidifierRele, turnOnRelay);
-  digitalWrite(lightningRele, turnOnRelay);
-
+  digitalWrite(heaterRele, turnOffRelay);
+  digitalWrite(coolingRele, turnOffRelay);
+  digitalWrite(humidifierRele, turnOffRelay);
+  digitalWrite(lightningRele, turnOffRelay);
+  digitalWrite(soilRele, turnOffRelay);
+  digitalWrite(wateringRele, turnOffRelay);
 }
 //==========================================================
 //=========================LOOP=============================
@@ -123,6 +130,10 @@ void makeAction(Sensor sens) {
     releNum = coolingRele;
   } else if (sens.key == kLightRelePosition) {
     releNum = lightningRele;
+  } else if (sens.key == kWaterinRelePosition) {
+    releNum = wateringRele;
+  } else if (sens.key == kSoilRelePosition) {
+    releNum = soilRele;
   }
   if (sens.value == turnOn) {
     Serial.print(releNum);
